@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Contributed to the UI/UX design for an intuitive, secure experience and supported the document management module.',
                 'Produced promotional and demo videos for project presentations.'
             ],
-            gallery: ['assets/signor-cover.jpg', 'assets/signor-signup.jpg', 'assets/signor-team.jpg', 'assets/signor-group.jpg'],
+            gallery: ['/assets/signor-cover.jpg', '/assets/signor-signup.jpg', '/assets/signor-team.jpg', '/assets/signor-group.jpg'],
             links: [
                 { label: 'Visit Website', url: 'https://signor.website/', primary: true },
                 { label: 'View Design', url: 'https://www.figma.com/design/9qJUxNPPWHPf5OQzEznIEE/Signor?node-id=0-1&t=NTOaN7zy82YdWWm9-1' }
@@ -1349,12 +1349,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ===================== GALLERY ===================== */
     const GALLERY = [
-        { src: 'assets/gallery-1.jpg', cap: 'Signor — live platform homepage' },
-        { src: 'assets/gallery-2.jpg', cap: 'Signor — account creation flow' },
-        { src: 'assets/gallery-3.jpg', cap: 'Capstone team presenting Signor' },
-        { src: 'assets/gallery-4.jpg', cap: 'PSITE-RAITE hackathon — team & mentors' },
-        { src: 'assets/gallery-5.jpg', cap: 'Hackathon build in progress' },
-        { src: 'assets/gallery-6.jpg', cap: 'Design showcase' },
+        { src: '/assets/gallery-1.jpg', cap: 'Signor — live platform homepage' },
+        { src: '/assets/gallery-2.jpg', cap: 'Signor — account creation flow' },
+        { src: '/assets/gallery-3.jpg', cap: 'Capstone team presenting Signor' },
+        { src: '/assets/gallery-4.jpg', cap: 'PSITE-RAITE hackathon — team & mentors' },
+        { src: '/assets/gallery-5.jpg', cap: 'Hackathon build in progress' },
+        { src: '/assets/gallery-6.jpg', cap: 'Design showcase' },
     ];
     const galleryModal = $('#galleryModal'), galleryGrid = $('#galleryGrid');
     galleryGrid.innerHTML = GALLERY.map(g =>
@@ -2499,6 +2499,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const mine = m.sid === ccId;
             el.className = 'cc-msg' + (mine ? ' me' : '');
             if (m.mid) el.dataset.mid = m.mid;
+            if (mine) el.dataset.mine = '1';
             const online = mine || peersHas(m.sid);
             const devIcon = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
             const when = `${absTime(m.ts)} \u00b7 ${relTime(m.ts)}`;
@@ -2520,10 +2521,10 @@ document.addEventListener('DOMContentLoaded', () => {
             el.innerHTML = `
         ${ccAvatar(m.name, online, m.gender)}
         <div class="cc-body">
-          <div class="cc-meta"><b>${m.name}</b><span>${loc} \u00b7 ${when}</span></div>
+          <div class="cc-meta"><b>${m.name}</b><span>${loc} \u00b7 ${when}</span>${m.edited ? '<span class="cc-edited">(edited)</span>' : ''}</div>
           ${quote}
           <div class="cc-bubble-row">
-            <p>${m.text}</p>
+            <p>${m.gif ? `<img class="cc-gif" src="${m.gif}" alt="GIF" loading="lazy">` : m.text}</p>
             <div class="cc-msg-actions">
               <button class="cc-act-btn cc-reply-btn" title="Reply" aria-label="Reply">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5v1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2531,7 +2532,10 @@ document.addEventListener('DOMContentLoaded', () => {
               <button class="cc-act-btn cc-react-btn" title="React" aria-label="Add reaction">
                 <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 14a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               </button>
-              ${isOwner ? `<button class="cc-act-btn cc-del-btn" title="Delete" aria-label="Delete message">
+              ${mine && !m.gif ? `<button class="cc-act-btn cc-edit-btn" title="Edit" aria-label="Edit message">
+                <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>` : ''}
+              ${(mine || isOwner) ? `<button class="cc-act-btn cc-del-btn" title="Delete" aria-label="Delete message">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path d="M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>` : ''}
             </div>
@@ -2566,6 +2570,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (m.op === 'delete') {
             const idx = list.findIndex(x => x.mid === m.mid);
             if (idx >= 0) { list.splice(idx, 1); ccSaveHistory(list); if (commOpen) ccRerenderAll(); }
+        } else if (m.op === 'edit') {
+            const target = list.find(x => x.mid === m.mid);
+            if (target && !target.gif) { target.text = m.text; target.edited = true; ccSaveHistory(list); if (commOpen) ccRerenderAll(); }
         }
     }
     function ccPush(m, broadcast) {
@@ -2670,13 +2677,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearReply() { ccReplyTo = null; $('#ccReplyBar').hidden = true; }
     $('#ccReplyCancel').addEventListener('click', clearReply);
 
-    // Delegated actions inside the message list (reply / react / delete)
+    // Delegated actions inside the message list (reply / react / edit / delete)
     ccMsgs.addEventListener('click', e => {
         const msgEl = e.target.closest('.cc-msg'); if (!msgEl) return;
         const mid = msgEl.dataset.mid; if (!mid) return;
+        const mine = msgEl.dataset.mine === '1';
         if (e.target.closest('.cc-reply-btn')) { setReply(mid); sfx('click'); return; }
+        if (e.target.closest('.cc-edit-btn')) {
+            if (mine) startEdit(mid, msgEl); return;
+        }
         if (e.target.closest('.cc-del-btn')) {
-            if (isOwner) { ccSendOp({ op: 'delete', mid }); sfx('switch'); }
+            if (mine || isOwner) { ccSendOp({ op: 'delete', mid }); sfx('switch'); }
             return;
         }
         if (e.target.closest('.cc-react-btn')) {
@@ -2692,6 +2703,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const chip = e.target.closest('.cc-react-chip');
         if (chip) { ccSendOp({ op: 'react', mid, emo: chip.dataset.react, by: ccId }); sfx('click'); return; }
     });
+
+    // Inline edit: turn the bubble into an input, save on Enter / blur
+    let ccEditing = null;
+    function startEdit(mid, msgEl) {
+        if (ccEditing) return;
+        const parent = ccFindMsg(mid); if (!parent || parent.gif) return;
+        const p = $('.cc-bubble-row p', msgEl); if (!p) return;
+        ccEditing = mid;
+        const original = parent.text;
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.className = 'cc-edit-input'; inp.maxLength = 240;
+        inp.value = original.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+        p.replaceWith(inp); inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+        const finish = save => {
+            if (ccEditing !== mid) return;
+            ccEditing = null;
+            const val = inp.value.trim();
+            if (save && val && !hasProfanity(val)) {
+                ccSendOp({ op: 'edit', mid, text: esc(val) });
+            } else if (save && hasProfanity(val)) {
+                ccShowNotice('\u26a0 Inappropriate language isn\u2019t allowed.');
+            }
+            if (commOpen) ccRerenderAll();
+        };
+        inp.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+            else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+        });
+        inp.addEventListener('blur', () => finish(true));
+    }
 
     // Gender selection on join
     let ccGender = 'woman';
@@ -2732,6 +2773,65 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#ccText').value = '';
         clearReply();
         sfx('click');
+    });
+
+    /* ---------- Emoji picker ---------- */
+    const EMOJIS = ['\u{1F60A}', '\u{1F602}', '\u{1F60D}', '\u{1F618}', '\u{1F929}', '\u{1F60E}', '\u{1F914}', '\u{1F644}', '\u{1F62D}', '\u{1F621}', '\u{1F970}', '\u{1F97A}', '\u{1F44D}', '\u{1F44E}', '\u{1F44F}', '\u{1F64C}', '\u{1F91D}', '\u{1F4AA}', '\u{1F64F}', '\u2764\uFE0F', '\u{1F9E1}', '\u{1F49B}', '\u{1F49A}', '\u{1F499}', '\u{1F49C}', '\u{1F525}', '\u2B50', '\u2728', '\u{1F389}', '\u{1F38A}', '\u{1F44B}', '\u{1F92F}', '\u{1F633}', '\u{1F971}', '\u{1F60C}', '\u{1F913}', '\u{1F643}', '\u{1F972}', '\u{1F979}', '\u{1F440}', '\u{1F4AF}', '\u{1F680}', '\u{1F44C}', '\u{1F91F}', '\u270C\uFE0F', '\u{1F340}', '\u{1F31F}', '\u{1F60B}'];
+    const ccEmojiPop = $('#ccEmojiPop'), ccGifPop = $('#ccGifPop');
+    ccEmojiPop.innerHTML = EMOJIS.map(e => `<button type="button" class="cc-emoji-item">${e}</button>`).join('');
+    function closePops() { ccEmojiPop.hidden = true; ccGifPop.hidden = true; }
+    $('#ccEmojiBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        const willShow = ccEmojiPop.hidden; closePops(); ccEmojiPop.hidden = !willShow; sfx('click');
+    });
+    ccEmojiPop.addEventListener('click', e => {
+        const btn = e.target.closest('.cc-emoji-item'); if (!btn) return;
+        const inp = $('#ccText');
+        inp.value += btn.textContent; inp.focus();
+    });
+
+    /* ---------- GIF picker (Tenor public demo key) ---------- */
+    const TENOR_KEY = 'LIVDSRZULELA'; // Tenor public test key
+    const ccGifGrid = $('#ccGifGrid'), ccGifSearch = $('#ccGifSearch');
+    let gifTimer = null;
+    async function loadGifs(q) {
+        ccGifGrid.innerHTML = '<p class="cc-gif-loading">Loading…</p>';
+        try {
+            const base = q
+                ? `https://g.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=18&media_filter=minimal`
+                : `https://g.tenor.com/v1/trending?key=${TENOR_KEY}&limit=18&media_filter=minimal`;
+            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
+            const res = await fetch(base, { signal: ctl.signal });
+            const data = await res.json();
+            const items = (data.results || []).map(r => {
+                const m = r.media && r.media[0];
+                const tiny = m && (m.tinygif || m.nanogif || m.gif);
+                const full = m && (m.gif || m.mediumgif || m.tinygif);
+                return tiny && full ? { preview: tiny.url, url: full.url } : null;
+            }).filter(Boolean);
+            if (!items.length) { ccGifGrid.innerHTML = '<p class="cc-gif-loading">No GIFs found.</p>'; return; }
+            ccGifGrid.innerHTML = items.map(g => `<button type="button" class="cc-gif-item" data-url="${g.url}"><img src="${g.preview}" alt="GIF" loading="lazy"></button>`).join('');
+        } catch { ccGifGrid.innerHTML = '<p class="cc-gif-loading">GIFs unavailable right now.</p>'; }
+    }
+    $('#ccGifBtn').addEventListener('click', e => {
+        e.stopPropagation();
+        const willShow = ccGifPop.hidden; closePops(); ccGifPop.hidden = !willShow;
+        if (willShow) { ccGifSearch.value = ''; loadGifs(''); ccGifSearch.focus(); }
+        sfx('click');
+    });
+    ccGifSearch.addEventListener('input', () => {
+        clearTimeout(gifTimer); gifTimer = setTimeout(() => loadGifs(ccGifSearch.value.trim()), 400);
+    });
+    ccGifGrid.addEventListener('click', e => {
+        const btn = e.target.closest('.cc-gif-item'); if (!btn) return;
+        if (!ccMe || !ccMe.name) { ccShowNotice('Please enter a username to join first.'); return; }
+        const mid = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const dev = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
+        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, ts: Date.now(), gif: btn.dataset.url, text: '', replyTo: ccReplyTo || undefined }, true);
+        closePops(); clearReply(); sfx('click');
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.cc-emoji-pop, .cc-gif-pop, #ccEmojiBtn, #ccGifBtn')) closePops();
     });
     let ccHeartbeat = null;
     function openCommunity() {
