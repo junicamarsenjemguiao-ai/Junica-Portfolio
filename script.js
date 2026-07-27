@@ -1768,7 +1768,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const toast = document.createElement('div'); toast.className = 'ach-toast';
         toast.innerHTML = `<span class="ach-ico" style="width:34px;height:34px;border-radius:10px">${qicon(q.ic)}</span><div><strong>Quest complete</strong> — ${q.t} <span class="t-xp">+${q.xp} XP</span></div>`;
         $('#achToastWrap').appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .4s'; setTimeout(() => toast.remove(), 400); }, 2600);
+        setTimeout(() => { toast.classList.add('leaving'); setTimeout(() => toast.remove(), 450); }, 2800);
         // effects
         const fab = $('#achFab').getBoundingClientRect();
         confettiBurst(fab.left + fab.width / 2, fab.top);
@@ -1779,7 +1779,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 $('#achToastWrap').appendChild(lvToast);
                 confettiBurst(window.innerWidth / 2, window.innerHeight * 0.8);
-                setTimeout(() => { lvToast.style.opacity = '0'; lvToast.style.transition = 'opacity .4s'; setTimeout(() => lvToast.remove(), 400); }, 2600);
+                setTimeout(() => { lvToast.classList.add('leaving'); setTimeout(() => lvToast.remove(), 450); }, 2800);
             }, 900);
         }
     }
@@ -2174,6 +2174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         ccWs.onerror = () => { try { ccWs.close(); } catch { } };
     }
+    const ccSeen = new Set(); // message ids already rendered — prevents echo duplicates
     function ccHandleRemote(m) {
         if (m.type === 'pos' || m.type === 'hello') {
             peers.set(m.id, { name: m.name || 'Guest', x: m.x ?? 0.5, y: m.y ?? 0.5, last: Date.now() });
@@ -2184,6 +2185,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (m.type === 'bye') { peers.delete(m.id); return; }
         if (m.op) { ccApplyOp(m); return; }
         if (m.text) {
+            if (m.sid === ccId) return;               // ignore echoes of our own messages
+            if (m.mid && ccSeen.has(m.mid)) return;   // already rendered from another channel
+            if (m.mid) ccSeen.add(m.mid);
             const list = ccHistory(); list.push(m); ccSaveHistory(list);
             if (commOpen) ccRender(m);
         }
@@ -2427,24 +2431,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     // Procedural line-art portrait — minimalist monochrome faces (like the reference,
     // but redrawn to match the portfolio). Each name yields a unique, stable face.
-    function ccAvatar(name, online) {
+    function ccAvatar(name, online, gender) {
         const h = ccHash(name);
         const pick = (shift, mod) => ((h >> shift) & 0xff) % mod;
         const face = ['M18 30c0-8 4-13 12-13s12 5 12 13-5 14-12 14-12-6-12-14z',           // oval
             'M17 29c0-7 5-12 13-12s13 5 13 12-4 15-13 15-13-8-13-15z',            // round
             'M18 28c0-7 5-11 12-11s12 4 12 11-3 16-12 16-12-9-12-16z'][pick(2, 3)]; // long
-        const hair = [
+        // Gendered hairstyles — women get longer/flowing styles, men get shorter cuts.
+        const womanHair = [
+            'M13 30c0-12 7-18 17-18s17 6 17 18c0 8-1 12-2 20l-3-1c1-6 1-10 1-15-2 3-6 4-13 4s-11-1-13-4c0 5 0 9 1 15l-3 1c-1-8-2-12-2-20z', // long straight
+            'M12 30c0-13 8-19 18-19s18 6 18 19c1 6-1 12-3 17l-3-2c1-3 2-6 1-9-2 3-3 4-5 4 1-2 1-4 0-6-2 3-8 5-14 4-4-1-7-3-8-7-1 3-1 8 0 12l-3 1c-2-6-2-11-2-18z', // wavy long
+            'M14 27c0-9 7-15 16-15s16 6 16 15c0 7-1 11-2 15l-2-1c1-4 1-7 1-11-2 3-6 4-13 4s-9-1-11-4c-1 4-1 8 0 12l-3 1c-1-5-2-9-2-16z'  // shoulder bob
+        ][pick(10, 3)];
+        const manHair = [
             'M15 30c0-11 6-16 15-16s15 5 15 16c0-5-3-9-6-9 1 2 1 4 0 5-2-4-6-6-9-6s-7 2-9 6c-1-1-1-3 0-5-3 0-6 4-6 9z', // short
-            'M14 32c-1-13 6-19 16-19s17 6 16 19c1-6 0-10-2-13-1 3-2 5-4 6 0-3-1-5-3-6 0 2-1 4-3 5-2-3-6-4-10-3-5 1-8 5-8 11z', // wavy
-            'M15 26c0-8 6-13 15-13s15 5 15 13c0 6-1 9-2 12l-2-1c1-3 1-6 1-9-2 2-5 3-9 3-5 0-9-1-12-4-1 3-1 6 0 10l-2 1c-2-4-4-7-4-12z', // bob
-            'M16 24c2-6 7-9 14-9s12 3 14 9c-2-2-4-3-6-3 1 1 2 2 2 4-3-2-6-3-10-3s-7 1-10 3c0-2 1-3 2-4-2 0-4 1-6 3z' // buzz
-        ][pick(10, 4)];
+            'M16 24c2-6 7-9 14-9s12 3 14 9c-2-2-4-3-6-3 1 1 2 2 2 4-3-2-6-3-10-3s-7 1-10 3c0-2 1-3 2-4-2 0-4 1-6 3z', // buzz
+            'M15 28c1-9 7-14 15-14s14 5 15 14c0-4-2-7-5-8 1 2 0 4-1 5-1-3-5-5-9-5-3 0-6 1-8 4-1-1-1-3 0-5-3 1-6 5-7 9z' // crew
+        ][pick(10, 3)];
+        const g = gender === 'man' ? 'man' : (gender === 'woman' ? 'woman' : (pick(30, 2) ? 'woman' : 'man'));
+        const hair = g === 'woman' ? womanHair : manHair;
         const brow = pick(18, 2) ? 'M23 27h5M32 27h5' : 'M23 28q2.5-1.5 5 0M32 28q2.5-1.5 5 0';
         const mouth = ['M25 37q5 3 10 0', 'M26 37q4 2 8 0', 'M25 37h10'][pick(20, 3)];
         const glasses = pick(24, 3) === 0
             ? '<circle cx="26" cy="31" r="3.4" fill="none"/><circle cx="34" cy="31" r="3.4" fill="none"/><path d="M29.4 31h1.2M22.6 30.5l-1.6-.5M37.4 30.5l1.6-.5"/>'
             : '';
-        const accent = `hsl(var(--accent-h, 20) 70% 55%)`;
+        // small accent earring for woman variants adds a subtle on-brand color pop
+        const earring = g === 'woman' && pick(28, 2)
+            ? '<circle cx="18.5" cy="34" r="1.4" fill="hsl(var(--accent-h, 20) 70% 55%)" stroke="none"/><circle cx="41.5" cy="34" r="1.4" fill="hsl(var(--accent-h, 20) 70% 55%)" stroke="none"/>'
+            : '';
         return `<span class="cc-ava${online ? ' on' : ''}" title="${name}">
       <svg viewBox="0 0 60 60" width="34" height="34" aria-hidden="true">
         <circle cx="30" cy="30" r="29" fill="var(--bg-elev, #fff)" stroke="var(--line-strong, #bbb)" stroke-width="1"/>
@@ -2455,6 +2469,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <path d="M25.5 31.5v.01M34.5 31.5v.01" stroke-width="2.4"/>
           <path d="${mouth}"/>
           ${glasses}
+          ${earring}
         </g>
       </svg>
     </span>`;
@@ -2487,7 +2502,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const online = mine || peersHas(m.sid);
             const devIcon = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
             const when = `${absTime(m.ts)} \u00b7 ${relTime(m.ts)}`;
-            const loc = (m.geo || m.country || '\u{1F310}') + ' ' + (m.dev || devIcon) + (m.ip ? ' \u00b7 ' + m.ip : '');
+            const loc = (m.geo || m.country || '\u{1F310}') + ' ' + (m.dev || devIcon);
             // reply quote
             let quote = '';
             if (m.replyTo) {
@@ -2503,7 +2518,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .join('') + '</div>';
             }
             el.innerHTML = `
-        ${ccAvatar(m.name, online)}
+        ${ccAvatar(m.name, online, m.gender)}
         <div class="cc-body">
           <div class="cc-meta"><b>${m.name}</b><span>${loc} \u00b7 ${when}</span></div>
           ${quote}
@@ -2554,6 +2569,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     function ccPush(m, broadcast) {
+        if (m.mid) ccSeen.add(m.mid); // remember so relay/broadcast echoes don't re-render
         const list = ccHistory(); list.push(m); ccSaveHistory(list);
         ccRender(m);
         if (broadcast && ccChan) ccChan.postMessage(m);
@@ -2570,42 +2586,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (m.type === 'pos') { if (m.id !== ccId) peers.set(m.id, { name: m.name || 'Guest', x: m.x, y: m.y, last: Date.now() }); return; }
         if (m.type === 'bye') { peers.delete(m.id); return; }
         if (m.op) { ccApplyOp(m); return; }
-        if (m.text) { const list = ccHistory(); list.push(m); ccSaveHistory(list); if (commOpen) ccRender(m); }
+        if (m.text) {
+            if (m.sid === ccId) return;
+            if (m.mid && ccSeen.has(m.mid)) return;
+            if (m.mid) ccSeen.add(m.mid);
+            const list = ccHistory(); list.push(m); ccSaveHistory(list); if (commOpen) ccRender(m);
+        }
     };
     async function ccGeo() {
-        // Privacy-conscious: show an approximate, IP-based location (city, region, country)
-        // plus a shortened IP — never GPS. Tries two providers for better accuracy.
-        async function tryIpapi() {
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
-            const res = await fetch('https://ipapi.co/json/', { signal: ctl.signal });
-            const d = await res.json();
-            return {
-                city: d.city, region: d.region, cc: d.country_code || d.country || '', ip: d.ip
-            };
-        }
+        // Privacy-conscious: show only an approximate, IP-based general location
+        // (city/municipality + country). No IP address is shown. Never uses GPS.
+        // Queries multiple providers and prefers the most specific place name.
         async function tryIpwho() {
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3000);
+            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
             const res = await fetch('https://ipwho.is/', { signal: ctl.signal });
             const d = await res.json();
             if (d && d.success === false) throw new Error('ipwho failed');
-            return {
-                city: d.city, region: d.region, cc: d.country_code || d.country_code_iso3 || '', ip: d.ip
-            };
+            return { city: d.city, region: d.region, cc: d.country_code || '' };
         }
+        async function tryIpapi() {
+            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
+            const res = await fetch('https://ipapi.co/json/', { signal: ctl.signal });
+            const d = await res.json();
+            return { city: d.city, region: d.region, cc: d.country_code || d.country || '' };
+        }
+        async function tryGeojs() {
+            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
+            const res = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: ctl.signal });
+            const d = await res.json();
+            return { city: d.city, region: d.region, cc: d.country_code || '' };
+        }
+        // Prefer providers that resolve municipality-level names; fall back in order.
         let d = null;
-        try { d = await tryIpapi(); } catch { try { d = await tryIpwho(); } catch { d = null; } }
-        if (!d) return { label: '\u{1F310} Unknown', ip: '', cc: '\u{1F310}' };
-        const cc = d.cc || '';
-        // Reference style: "City, CC" (e.g. "Angeles City, PH"); fall back gracefully.
-        const place = d.city ? `${d.city}${cc ? ', ' + cc : ''}`
-            : (d.region ? `${d.region}${cc ? ', ' + cc : ''}` : (cc || '\u{1F310}'));
-        let ipShort = '';
-        if (d.ip) {
-            ipShort = d.ip.includes(':')
-                ? d.ip.split(':').slice(0, 2).join(':') + ':\u2026'   // IPv6
-                : d.ip.split('.').slice(0, 3).join('.') + '.x';        // IPv4
+        for (const fn of [tryIpwho, tryIpapi, tryGeojs]) {
+            try { d = await fn(); if (d && (d.city || d.region)) break; } catch { /* next */ }
         }
-        return { label: place, ip: ipShort, cc: cc || '\u{1F310}' };
+        if (!d) return { label: '\u{1F310} Unknown', cc: '\u{1F310}' };
+        const cc = d.cc || '';
+        // "City, CC" (e.g. "Lubao, PH"); prefer the most specific place name available.
+        const spot = d.city || d.region || '';
+        const place = spot ? `${spot}${cc ? ', ' + cc : ''}` : (cc || '\u{1F310}');
+        return { label: place, cc: cc || '\u{1F310}' };
     }
     function ccEnter() {
         ccJoin.hidden = true; ccMsgs.hidden = false; ccForm.hidden = false;
@@ -2672,6 +2693,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chip) { ccSendOp({ op: 'react', mid, emo: chip.dataset.react, by: ccId }); sfx('click'); return; }
     });
 
+    // Gender selection on join
+    let ccGender = 'woman';
+    $$('.cc-gender-opt').forEach(btn => btn.addEventListener('click', () => {
+        ccGender = btn.dataset.gender;
+        $$('.cc-gender-opt').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+        sfx('click');
+    }));
+
     $('#ccJoinForm').addEventListener('submit', async e => {
         e.preventDefault();
         const raw = ($('#ccName').value || '').trim();
@@ -2679,7 +2708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hasProfanity(raw)) { ccShowNotice('Please choose a username without inappropriate language.'); return; }
         const name = esc(raw);
         const geo = await ccGeo();
-        ccMe = { name, country: geo.cc, geo: geo.label, ip: geo.ip, joined: Date.now() };
+        ccMe = { name, gender: ccGender, country: geo.cc, geo: geo.label, joined: Date.now() };
         store.set('commMe', ccMe);
         ccEnter();
         ccPush({ mid: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), sys: true, text: `${name} joined from ${geo.label}` }, true);
@@ -2699,7 +2728,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = esc(raw);
         const mid = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const dev = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
-        ccPush({ mid, sid: ccId, name: ccMe.name, country: ccMe.country, geo: ccMe.geo, ip: ccMe.ip, dev, ts: Date.now(), text, replyTo: ccReplyTo || undefined }, true);
+        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, ts: Date.now(), text, replyTo: ccReplyTo || undefined }, true);
         $('#ccText').value = '';
         clearReply();
         sfx('click');

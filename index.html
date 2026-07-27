@@ -3,6 +3,30 @@
 
 <head>
     <meta charset="UTF-8">
+    <script>
+        // Anti-flash: apply the saved theme (and matching background) before first paint
+        // so reloading in Light Mode never flashes the dark background, and vice-versa.
+        (function () {
+            try {
+                var t = null;
+                var raw = localStorage.getItem('jmj_theme');
+                if (raw) { try { t = JSON.parse(raw); } catch (e) { t = raw; } }
+                if (t !== 'light' && t !== 'dark') {
+                    var hh = new Date().getHours();
+                    t = (hh >= 6 && hh < 18) ? 'light' : 'dark';
+                }
+                var root = document.documentElement;
+                root.setAttribute('data-theme', t);
+                var bg = t === 'light' ? '#FAFAF7' : '#0B0B0C';
+                root.style.setProperty('--boot-bg', bg);
+                // Paint the background directly on <html> so there is no flash even
+                // before the external stylesheet finishes loading.
+                root.style.backgroundColor = bg;
+                var mt = document.querySelector('meta[name="theme-color"]');
+                if (mt) mt.setAttribute('content', bg);
+            } catch (e) { }
+        })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Junica Marsen Jem Guiao | Business Analyst &amp; UI/UX Designer</title>
     <meta name="description"
@@ -1095,10 +1119,28 @@
                         <span class="cc-presence" id="ccPresence"></span>
                     </div>
                     <div class="cc-join" id="ccJoin">
-                        <p>Pick a name to join the chat.</p>
+                        <p>Join the chat</p>
                         <form id="ccJoinForm">
                             <input type="text" id="ccName" maxlength="18" placeholder="Enter a username to join"
                                 autocomplete="off" required>
+                            <div class="cc-gender" role="radiogroup" aria-label="I am a">
+                                <button type="button" class="cc-gender-opt" data-gender="woman" aria-pressed="false">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                                        stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="8" r="5" />
+                                        <path d="M12 13v8M9 18h6" />
+                                    </svg>
+                                    Woman
+                                </button>
+                                <button type="button" class="cc-gender-opt" data-gender="man" aria-pressed="false">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                                        stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="10" cy="14" r="5" />
+                                        <path d="M15 9l5-5M15 4h5v5" />
+                                    </svg>
+                                    Man
+                                </button>
+                            </div>
                             <button type="submit" class="gift-btn">Join</button>
                         </form>
                     </div>

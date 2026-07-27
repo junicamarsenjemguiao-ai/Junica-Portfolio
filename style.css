@@ -312,7 +312,7 @@ input:focus-visible {
     z-index: 900;
     display: grid;
     place-content: center;
-    background: var(--bg);
+    background: var(--boot-bg, var(--bg));
     transition: opacity .55s var(--ease), visibility .55s var(--ease);
 }
 
@@ -937,6 +937,27 @@ body.cursor-on .cursor-arrow {
     color: var(--text-dim);
     font-size: 1.05rem;
     margin-bottom: var(--space-4);
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+    animation: hero-bio-in 1s var(--ease) .55s forwards;
+}
+
+@keyframes hero-bio-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-bio {
+        animation: none;
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
 }
 
 .hero-actions {
@@ -2367,7 +2388,7 @@ a.geo-val:hover {
     -webkit-backdrop-filter: blur(var(--glass-blur));
     user-select: none;
     clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
-    transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
+    transition: border-color .35s var(--ease), box-shadow .35s var(--ease), transform .45s var(--ease), filter .45s var(--ease), background .35s var(--ease);
     will-change: transform, opacity;
 }
 
@@ -2391,13 +2412,18 @@ a.geo-val:hover {
 }
 
 .cert-card.is-center {
-    border-color: var(--accent);
-    box-shadow: 0 16px 30px -12px var(--accent-glow-soft), 0 0 0 1px var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    filter: drop-shadow(0 20px 34px var(--accent-glow-soft)) drop-shadow(0 6px 14px rgba(0, 0, 0, .10));
+    transform: translateY(-4px) scale(1.015);
+    background:
+        radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+        var(--card-bg, var(--bg-elev));
 }
 
 .cert-card.is-center .cert-icon {
     background: var(--accent);
     color: var(--accent-ink);
+    box-shadow: 0 4px 14px -4px var(--accent-glow, rgba(0, 0, 0, .3));
 }
 
 .cert-top {
@@ -4266,15 +4292,38 @@ html[data-desktop="on"] .project-card {
 .ach-toast {
     display: flex;
     align-items: center;
-    gap: .7rem;
-    padding: .7rem 1.1rem;
-    border-radius: 999px;
-    background: var(--glass-bg-2);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--accent);
-    box-shadow: var(--shadow), 0 0 30px -10px var(--accent-glow);
-    font-size: .86rem;
-    animation: toast-in .4s var(--ease);
+    gap: .75rem;
+    padding: .7rem .95rem .7rem .75rem;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    box-shadow: 0 8px 32px -12px rgba(0, 0, 0, .28), 0 2px 8px -4px rgba(0, 0, 0, .16), inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
+    font-size: .84rem;
+    color: var(--text);
+    animation: toast-in .5s cubic-bezier(.16, 1, .3, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ach-toast::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent));
+    border-radius: 3px;
+}
+
+.ach-toast .ach-ico {
+    box-shadow: 0 2px 8px -3px var(--accent-glow, rgba(0, 0, 0, .25));
+}
+
+.ach-toast strong {
+    font-weight: 600;
 }
 
 .ach-toast .ach-emoji {
@@ -4283,19 +4332,35 @@ html[data-desktop="on"] .project-card {
 
 .ach-toast .t-xp {
     font-family: var(--font-mono);
-    font-size: .72rem;
+    font-size: .7rem;
+    font-weight: 500;
     color: var(--accent);
+    margin-left: .15rem;
+    padding: .12rem .4rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.ach-toast.leaving {
+    animation: toast-out .45s cubic-bezier(.4, 0, 1, 1) forwards;
 }
 
 @keyframes toast-in {
     from {
-        transform: translateY(20px);
+        transform: translateY(24px) scale(.96);
         opacity: 0;
     }
 
     to {
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
         opacity: 1;
+    }
+}
+
+@keyframes toast-out {
+    to {
+        transform: translateY(-12px) scale(.97);
+        opacity: 0;
     }
 }
 
@@ -6488,9 +6553,7 @@ body.desktop-mode .project-card {
     gap: .7rem;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: var(--card-bg, var(--bg-elev));
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     transition: border-color .3s var(--ease), box-shadow .3s var(--ease);
@@ -6504,6 +6567,7 @@ body.desktop-mode .project-card {
 
 .flip-front {
     justify-content: flex-start;
+    transform: rotateY(0deg);
 }
 
 .flip-front h4 {
@@ -7394,7 +7458,45 @@ body.desktop-mode .project-card {
 
 .cc-join form {
     display: flex;
+    flex-direction: column;
+    gap: .6rem;
+}
+
+.cc-gender {
+    display: flex;
     gap: .5rem;
+}
+
+.cc-gender-opt {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: .6rem .5rem;
+    border-radius: 12px;
+    font-size: .82rem;
+    font-weight: 500;
+    border: 1.5px solid var(--line-strong);
+    color: var(--text-dim);
+    background: var(--glass-bg);
+    transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease), transform .15s var(--ease);
+}
+
+.cc-gender-opt:hover {
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.cc-gender-opt[aria-pressed="true"] {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    box-shadow: 0 4px 14px -6px var(--accent-glow, rgba(0, 0, 0, .2));
+}
+
+.cc-gender-opt svg {
+    flex-shrink: 0;
 }
 
 .cc-join input,
