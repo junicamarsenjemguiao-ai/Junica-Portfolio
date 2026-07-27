@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Vercel
+.vercel
+
+# IMPORTANT: never ignore the assets folder — the site needs these images/fonts.
+# (Explicit un-ignore in case a global gitignore blocks images.)
+!assets/
+!assets/**
+!*.png
+!*.jpg
+!*.jpeg
+!*.svg
+!*.pdf
+!*.webp
+!*.gif

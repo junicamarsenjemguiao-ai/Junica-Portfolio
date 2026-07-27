@@ -1353,8 +1353,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { src: '/assets/gallery-2.jpg', cap: 'Signor — account creation flow' },
         { src: '/assets/gallery-3.jpg', cap: 'Capstone team presenting Signor' },
         { src: '/assets/gallery-4.jpg', cap: 'PSITE-RAITE hackathon — team & mentors' },
-        { src: '/assets/gallery-5.jpg', cap: 'Hackathon build in progress' },
-        { src: '/assets/gallery-6.jpg', cap: 'Design showcase' },
+        { src: '/assets/gallery-5.jpg', cap: 'Vertify — fact-checking platform' },
+        { src: '/assets/gallery-6.jpg', cap: 'Signor — platform detail' },
     ];
     const galleryModal = $('#galleryModal'), galleryGrid = $('#galleryGrid');
     galleryGrid.innerHTML = GALLERY.map(g =>
