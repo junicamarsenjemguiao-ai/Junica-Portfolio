@@ -9498,3 +9498,270 @@ video {
         animation: none !important;
     }
 }
+
+/* ==========================================================================
+   V13 — popup anchoring fix, emoji webfont, smaller desktop project cards
+   ========================================================================== */
+
+/* The emoji/sticker trays live inside .cc-input, which is the positioned
+   ancestor they are measured against. Belt-and-braces so they can never be
+   pushed off-screen again, whatever the surrounding layout does. */
+.cc-input {
+    position: relative;
+}
+
+.cc-emoji-pop,
+.cc-gif-pop,
+.cc-sticker-pop {
+    position: absolute;
+    bottom: calc(100% + .5rem);
+    top: auto;
+    left: .6rem;
+    right: .6rem;
+    z-index: 40;
+}
+
+/* Emoji: prefer the system set, fall back to the webfont so glyphs never
+   render as empty boxes on machines with no colour-emoji font. */
+:root {
+    --font-emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', sans-serif;
+}
+
+/* ---------- Projects: more compact on desktop ---------- */
+@media (min-width: 900px) {
+    .project-grid.paged {
+        max-width: 960px;
+        margin-inline: auto;
+        gap: var(--space-3);
+    }
+
+    .project-grid.paged .project-card {
+        min-height: 342px;
+    }
+
+    .project-grid.paged .project-info {
+        padding: var(--space-2) var(--space-3) var(--space-3);
+    }
+
+    .project-grid.paged .project-title {
+        font-size: 1.02rem;
+    }
+
+    .project-grid.paged .project-role {
+        font-size: .8rem;
+    }
+
+    .project-grid.paged .project-tag {
+        font-size: .7rem;
+    }
+
+    .project-grid.paged .project-techs span {
+        font-size: .68rem;
+    }
+}
+
+/* ==========================================================================
+   V14 — real fix for the desktop project grid + narrow-screen chat overflow
+   ========================================================================== */
+
+/* Line 1868 declares `.project-grid.paged .project-card.g1 { grid-column: span 4 }`
+   (4-class specificity), which beat the earlier 2-class reset and made every card
+   span the full 3-column track — one huge card per row. Matched here and reset. */
+@media (min-width: 900px) {
+
+    .project-grid.paged .project-card.g1,
+    .project-grid.paged .project-card.g2 {
+        grid-column: auto;
+    }
+}
+
+/* The chat input's default `size` attribute created a min-content width wider
+   than the modal on phones, dragging the panel (and its popups) off-screen. */
+.community-grid,
+.community-grid>* {
+    min-width: 0;
+}
+
+.community-chat,
+.cc-msgs,
+.cc-body {
+    min-width: 0;
+}
+
+.cc-input {
+    flex-wrap: nowrap;
+}
+
+.cc-input input {
+    flex: 1 1 40px;
+    min-width: 0;
+}
+
+.cc-emoji-pop,
+.cc-gif-pop,
+.cc-sticker-pop {
+    max-width: calc(100vw - 2rem);
+}
+
+/* ==========================================================================
+   V15 — measured responsiveness fixes (touch targets, short viewports, iOS)
+   ========================================================================== */
+
+/* ---------- Touch targets: sweep found controls at 34–38px on every
+     touch device. Coarse pointers get the 44px minimum. ---------- */
+@media (pointer: coarse) {
+    .nav-toggle {
+        width: 44px;
+        height: 44px;
+    }
+
+    .icon-btn,
+    .theme-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .filter-btn {
+        min-height: 44px;
+        padding-block: .7rem;
+    }
+
+    .pager-btn {
+        width: 48px;
+        height: 48px;
+    }
+
+    .modal-close {
+        width: 44px;
+        height: 44px;
+    }
+
+    .office-dpad button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .cc-act-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .cert-view-btn,
+    .view-toggle button {
+        min-height: 44px;
+    }
+}
+
+/* The chat row holds four buttons — only widen them where the row can
+   actually take it, so narrow phones don't overflow. */
+@media (pointer: coarse) and (min-width: 360px) {
+    .cc-input button {
+        width: 44px;
+        height: 44px;
+    }
+}
+
+/* ---------- Short viewports (landscape phones): the trays are taller than
+     the space above the input at 280px height. Cap them against the viewport. ---------- */
+.cc-emoji-pop {
+    max-height: min(190px, 40vh);
+}
+
+.cc-gif-pop,
+.cc-sticker-pop {
+    max-height: min(300px, 46vh);
+}
+
+.cc-sticker-grid {
+    max-height: min(232px, 34vh);
+}
+
+@media (max-height: 480px) {
+    .cc-emoji-pop {
+        grid-template-columns: repeat(10, 1fr);
+        max-height: 34vh;
+    }
+
+    .cc-gif-pop,
+    .cc-sticker-pop {
+        max-height: 38vh;
+    }
+
+    .cc-sticker-grid {
+        max-height: 26vh;
+    }
+
+    .cc-sticker-head {
+        display: none;
+    }
+}
+
+/* ---------- iOS: dvh avoids the toolbar-height jump; safe-area keeps the
+     chat row clear of the home indicator. Reasoned, not Safari-verified. ---------- */
+@supports (height: 100dvh) {
+    .hero {
+        min-height: calc(100dvh - var(--header-h));
+    }
+
+    .nav-menu {
+        max-height: calc(100dvh - var(--header-h));
+    }
+
+    .modal {
+        max-height: 90dvh;
+    }
+
+    .chatbot-panel {
+        max-height: 76dvh;
+    }
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+    .community-modal .cc-input {
+        padding-bottom: max(.6rem, env(safe-area-inset-bottom));
+    }
+
+    .back-to-top {
+        margin-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* ---------- iOS auto-zooms any focused input under 16px and never zooms
+     back out. 16px on coarse pointers prevents it. ---------- */
+@media (pointer: coarse) {
+
+    .cc-input input,
+    .cc-join input,
+    #cvPass,
+    #cmdkInput,
+    .accent-hex,
+    .project-search input,
+    .contact-form input,
+    .contact-form textarea,
+    #ccGifSearch,
+    .chatbot-input input {
+        font-size: 16px;
+    }
+}
+
+/* Android: stop the grey flash box on every tap */
+a,
+button,
+[role="button"],
+input,
+.project-card,
+.core-card,
+.cert-card {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Header controls were flex-shrinking below 44px on crowded landscape headers */
+@media (pointer: coarse) {
+
+    .nav-actions .icon-btn,
+    .nav-actions .theme-btn,
+    .nav-toggle {
+        flex-shrink: 0;
+    }
+}

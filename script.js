@@ -1478,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cvDataReq) return cvDataReq;
         cvDataReq = new Promise((resolve, reject) => {
             const sc = document.createElement('script');
-            sc.src = 'cv-data.js?v=11';
+            sc.src = 'cv-data.js?v=12';
             sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
             sc.onerror = () => reject(new Error('missing'));
             document.head.appendChild(sc);
