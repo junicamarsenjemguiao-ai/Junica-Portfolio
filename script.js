@@ -305,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         theme: store.get('theme', null),
         preset: store.get('preset', 'mono'),
         accent: store.get('accent2', null),   // null = use preset accent
+        accentHex: store.get('accentHex', null), // custom HEX overrides both
         grad: store.get('grad2', null),       // null = use preset gradient
         ambient: store.get('ambient', 'off'),
         grid: store.get('grid', 'off'),
@@ -319,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voiceLang: store.get('voiceLang', 'en-US'),
     };
     // Default mode follows the time of day (06:00–17:59 light, otherwise dark)
+    if (state.preset !== 'custom' && !PRESETS.some(p => p.id === state.preset)) { state.preset = 'mono'; store.set('preset', 'mono'); }
     if (!state.theme) { const hh = new Date().getHours(); state.theme = (hh >= 6 && hh < 18) ? 'light' : 'dark'; }
 
     /* ---------- Fonts ---------- */
@@ -413,9 +415,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Manual overrides (chosen after preset) still win
         if (state.accent !== null) applyAccent(false);
+        if (state.accentHex) applyAccentHex(state.accentHex, false);
         if (state.grad !== null) applyGradient(false);
-        $$('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === p.id));
+        $$('#presetGrid .preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === p.id));
         refreshAccentCss();
+        syncRootBg();
+    }
+
+    // Keeps the <html> background + browser theme colour matched to the active
+    // preset so no theme can flash or half-apply after a deploy.
+    function syncRootBg() {
+        try {
+            const bg = (getComputedStyle(html).getPropertyValue('--bg') || '').trim();
+            if (!bg) return;
+            html.style.setProperty('--boot-bg', bg);
+            html.style.backgroundColor = bg;
+            const mt = document.querySelector('meta[name="theme-color"]');
+            if (mt) mt.setAttribute('content', bg);
+        } catch (e) { }
+    }
+
+    function hexToHsl(hex) {
+        const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+        if (!m) return null;
+        const s6 = m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1];
+        const r = parseInt(s6.slice(0, 2), 16) / 255, g = parseInt(s6.slice(2, 4), 16) / 255, b = parseInt(s6.slice(4, 6), 16) / 255;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+        let h2 = 0, sa = 0;
+        if (mx !== mn) {
+            const d = mx - mn;
+            sa = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+            h2 = (mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? ((b - r) / d + 2) : ((r - g) / d + 4)) * 60;
+        }
+        return { hex: '#' + s6.toUpperCase(), h: Math.round(h2), s: Math.round(sa * 100), l: Math.round(l * 100) };
+    }
+    function applyAccentHex(hex, sync = true) {
+        const c = hexToHsl(hex);
+        if (!c) return false;
+        state.accentHex = c.hex; state.accent = null;
+        html.style.setProperty('--accent-h', c.h);
+        html.style.setProperty('--accent-s', c.s + '%');
+        html.style.setProperty('--accent-l', c.l + '%');
+        html.style.setProperty('--accent-ink', c.l > 62 ? '#0B0B0C' : '#FFFFFF');
+        if (html.getAttribute('data-preset') === 'mono') html.setAttribute('data-preset', 'custom');
+        $$('.swatch').forEach(el => el.classList.remove('active'));
+        $$('.accent-hex').forEach(el => { el.value = c.hex; el.classList.remove('bad'); });
+        $$('.accent-dot input[type="color"]').forEach(el => { el.value = c.hex; });
+        if (sync) refreshAccentCss();
+        return true;
     }
 
     function applyAccent(sync = true) {
@@ -471,8 +518,8 @@ document.addEventListener('DOMContentLoaded', () => {
         presetGrid.appendChild(b);
     }
     function selectPreset(p) {
-        state.preset = p.id; state.accent = null; state.grad = null;
-        store.set('preset', p.id); store.set('accent2', null); store.set('grad2', null);
+        state.preset = p.id; state.accent = null; state.grad = null; state.accentHex = null;
+        store.set('preset', p.id); store.set('accent2', null); store.set('grad2', null); store.set('accentHex', null);
         if (p.mode) { state.theme = p.mode; store.set('theme', p.mode); }
         if (p.ambient) { state.ambient = p.ambient; store.set('ambient', state.ambient); }
         applyTheme(); applyAccent(); applyGradient(); applyAmbient(); updateAvatarMode();
@@ -509,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
             b.className = 'swatch'; b.dataset.idx = i;
             b.style.background = `hsl(${a.h} ${a.s}% ${a.l}%)`;
             b.setAttribute('aria-label', a.name); b.title = a.name;
-            b.addEventListener('click', () => { state.accent = i; store.set('accent2', i); applyAccent(); sfx('click'); unlock('theme'); });
+            b.addEventListener('click', () => { state.accent = i; state.accentHex = null; store.set('accent2', i); store.set('accentHex', null); applyAccent(); sfx('click'); unlock('theme'); });
             accRow.appendChild(b);
         });
         GRADIENTS.forEach((g, i) => {
@@ -526,6 +573,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     buildSwatches($('#accentSwatches'), $('#gradSwatches'));
     sortFavs($('#gradSwatches'));
+
+    /* Any accent colour: native picker or a typed HEX code */
+    function commitAccentHex(val) {
+        if (applyAccentHex(val)) {
+            store.set('accentHex', state.accentHex); store.set('accent2', null);
+            sfx('click'); unlock('theme');
+        } else {
+            $$('.accent-hex').forEach(el => el.classList.add('bad'));
+            sfx('deny');
+        }
+    }
+    document.addEventListener('input', e => {
+        if (e.target.matches && e.target.matches('.accent-dot input[type="color"]')) commitAccentHex(e.target.value);
+    });
+    document.addEventListener('click', e => {
+        const btn = e.target.closest && e.target.closest('.accent-apply');
+        if (!btn) return;
+        const wrap = btn.closest('.accent-custom');
+        commitAccentHex(wrap ? $('.accent-hex', wrap).value : '');
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.matches && e.target.matches('.accent-hex')) { e.preventDefault(); commitAccentHex(e.target.value); }
+    });
 
     $$('[data-theme-choice]').forEach(b => b.addEventListener('click', () => {
         state.theme = b.dataset.themeChoice; store.set('theme', state.theme);
@@ -562,7 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#appearanceClose')?.addEventListener('click', () => closePanel(appPanel));
     appPanel?.addEventListener('click', e => { if (e.target === appPanel) closePanel(appPanel); });
     $('#appearanceReset')?.addEventListener('click', () => {
-        state.preset = 'mono'; state.accent = null; state.grad = null;
+        state.preset = 'mono'; state.accent = null; state.grad = null; state.accentHex = null;
+        store.set('accentHex', null);
         state.ambient = 'off';
         { const hh = new Date().getHours(); state.theme = (hh >= 6 && hh < 18) ? 'light' : 'dark'; }
         state.grid = 'off'; state.gridSize = 64; state.gridAlpha = 0.7; state.sound = true;
@@ -579,12 +650,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const extra = $('#navMenuExtra');
     if (extra) {
         extra.innerHTML = `
+      <div class="nav-extra-actions">
+        <button type="button" class="nav-extra-btn" id="navPrefsBtn">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h9M17 8h3M4 16h3M11 16h9"/><circle cx="15" cy="8" r="2.4"/><circle cx="9" cy="16" r="2.4"/></svg>
+          Edit Preferences
+        </button>
+        <a class="nav-extra-btn" href="https://www.linkedin.com/in/junicamarsenjem-guiao" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5C4.98 4.6 4.1 5.5 3 5.5S1 4.6 1 3.5 1.9 1.5 3 1.5s1.98.9 1.98 2zM1.4 8.75h3.2V23H1.4V8.75zM8.5 8.75h3.07v1.95h.04c.43-.81 1.48-1.66 3.05-1.66 3.26 0 3.86 2.15 3.86 4.94V23h-3.2v-6.87c0-1.64-.03-3.75-2.29-3.75-2.29 0-2.64 1.79-2.64 3.63V23H8.5V8.75z"/></svg>
+          LinkedIn
+        </a>
+      </div>
       <div class="panel-group"><span class="panel-label">Theme</span>
         <div class="seg"><button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button></div>
       </div>
-      <div class="panel-group"><span class="panel-label">Accent</span><div class="swatch-row" id="accentSwatchesM"></div></div>
+      <div class="panel-group"><span class="panel-label">Accent</span><div class="swatch-row" id="accentSwatchesM"></div>
+        <div class="accent-custom">
+          <label class="accent-dot"><input type="color" value="#7C6CFF" aria-label="Custom accent colour"></label>
+          <input type="text" class="accent-hex" placeholder="#RRGGBB" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Custom accent hex code">
+          <button type="button" class="accent-apply">Apply</button>
+        </div>
+      </div>
       <div class="panel-group"><span class="panel-label">Gradient</span><div class="grad-row" id="gradSwatchesM"></div></div>`;
         buildSwatches($('#accentSwatchesM'), $('#gradSwatchesM'));
+        $('#navPrefsBtn')?.addEventListener('click', () => {
+            document.getElementById('navMenu')?.classList.remove('open');
+            document.getElementById('navToggle')?.setAttribute('aria-expanded', 'false');
+            openPanel(appPanel); sfx('pop');
+        });
         $$('#navMenuExtra [data-theme-choice]').forEach(b => b.addEventListener('click', () => {
             state.theme = b.dataset.themeChoice; store.set('theme', state.theme);
             applyTheme(); updateAvatarMode(); sfx('switch'); unlock('theme');
@@ -592,6 +684,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial paint
+    if (state.accentHex) applyAccentHex(state.accentHex, false);
     applyTheme(); applyAccent(); applyGradient(); applyGrid(); applySound(); syncAmbientButtons();
     applyFont(); applySize(); applyDesktop();
 
@@ -1379,9 +1472,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const CV_KEY = 'TmljYWplbTEwMTY=';
     let cvUnlocked = false;
     try { cvUnlocked = sessionStorage.getItem('jmj_cv') === '1'; } catch { }
+    let cvDataReq = null, cvRendered = false, cvBlobUrl = null;
+    function loadCvData() {
+        if (window.JMJ_CV) return Promise.resolve(window.JMJ_CV);
+        if (cvDataReq) return cvDataReq;
+        cvDataReq = new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'cv-data.js?v=11';
+            sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
+            sc.onerror = () => reject(new Error('missing'));
+            document.head.appendChild(sc);
+        });
+        return cvDataReq;
+    }
+    function renderCv() {
+        if (cvRendered) return;
+        const pagesEl = $('#cvPages'), loadEl = $('#cvLoading');
+        if (!pagesEl) return;
+        cvRendered = true;
+        loadCvData().then(data => {
+            pagesEl.innerHTML = (data.pages || [])
+                .map((src, i) => `<img src="${src}" alt="Curriculum Vitae \u2014 page ${i + 1}">`).join('');
+            if (loadEl) loadEl.hidden = true;
+            if (data.pdf) {
+                try {
+                    const bin = atob(data.pdf.split(',')[1]);
+                    const buf = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+                    cvBlobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
+                    const tab = $('#cvOpenTab'), dl = $('#cvDownload');
+                    if (tab) tab.href = cvBlobUrl;
+                    if (dl) { dl.href = cvBlobUrl; dl.download = 'Junica-Guiao-CV.pdf'; }
+                } catch (e) { /* keep the file-path fallback */ }
+            }
+        }).catch(() => {
+            cvRendered = false;
+            if (loadEl) {
+                loadEl.hidden = false;
+                loadEl.innerHTML = 'Preview unavailable here \u2014 <a class="vc-act" href="assets/Junica-Guiao-CV.pdf" target="_blank" rel="noopener">open the CV in a new tab</a>.';
+            }
+        });
+    }
     function syncCvView() {
         cvLock.hidden = cvUnlocked;
         cvContent.hidden = !cvUnlocked;
+        if (cvUnlocked) renderCv();
     }
     cvForm.addEventListener('submit', e => {
         e.preventDefault();
@@ -1525,6 +1660,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { sel: '#contactForm', t: 'Say hello', d: 'Send Junica a message right from here — it goes straight to her inbox. Thanks for taking the tour!', act: { label: 'Jump to form', fn: () => $('#contactForm').scrollIntoView({ behavior: 'smooth', block: 'center' }) } },
     ];
     let tourI = -1, tourEls = null;
+    let tourVoiceOn = store.get('tourVoice', false);
     function buildTourUI() {
         if (tourEls) return;
         const ring = document.createElement('div'); ring.className = 'tour-ring';
@@ -1533,6 +1669,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="tour-nav">
         <button class="btn btn-outline" id="tourPrev"><svg viewBox="0 0 24 24" width="14" height="14"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg> Prev</button>
         <button class="btn btn-primary" id="tourNext">Next <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="tour-voice" id="tourVoice" aria-pressed="false" title="Narrate the tour aloud"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" class="tv-waves"/></svg> <span class="tv-label">Voice</span></button>
         <button class="tour-auto" id="tourAuto" aria-pressed="false">▶ Auto</button>
         <button class="tour-skip" id="tourSkip">Skip Tour</button>
       </div>`;
@@ -1542,8 +1679,44 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#tourPrev', tip).addEventListener('click', () => { stopTourAuto(); showTourStep(tourI - 1); });
         $('#tourNext', tip).addEventListener('click', () => { stopTourAuto(); tourI >= TOUR_STEPS.length - 1 ? endTour() : showTourStep(tourI + 1); });
         $('#tourAuto', tip).addEventListener('click', () => { tourAutoTimer ? stopTourAuto() : startTourAuto(); });
+        $('#tourVoice', tip).addEventListener('click', () => {
+            tourVoiceOn = !tourVoiceOn;
+            store.set('tourVoice', tourVoiceOn);
+            syncTourVoice();
+            if (tourVoiceOn) { narrateTourStep(); }
+            else if (window.speechSynthesis) window.speechSynthesis.cancel();
+            sfx('click');
+        });
         $('#tourSkip', tip).addEventListener('click', endTour);
         quit.addEventListener('click', endTour);
+        syncTourVoice();
+    }
+    // Pick a clean, natural-sounding English voice when available
+    function pickTourVoice() {
+        if (!window.speechSynthesis) return null;
+        const vs = window.speechSynthesis.getVoices();
+        if (!vs.length) return null;
+        const prefer = ['Google US English', 'Samantha', 'Microsoft Aria', 'Microsoft Jenny', 'Microsoft Zira', 'Karen', 'Moira'];
+        for (const name of prefer) { const v = vs.find(x => x.name === name); if (v) return v; }
+        return vs.find(v => /en[-_]US/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || vs[0];
+    }
+    function syncTourVoice() {
+        const b = tourEls && $('#tourVoice', tourEls.tip); if (!b) return;
+        b.classList.toggle('on', tourVoiceOn);
+        b.setAttribute('aria-pressed', String(tourVoiceOn));
+        const lbl = $('.tv-label', b); if (lbl) lbl.textContent = tourVoiceOn ? 'Voice on' : 'Voice';
+        b.title = tourVoiceOn ? 'Tour narration: on' : 'Narrate the tour aloud';
+    }
+    function narrateTourStep() {
+        if (!tourVoiceOn || !window.speechSynthesis || tourI < 0) return;
+        const st = TOUR_STEPS[tourI];
+        window.speechSynthesis.cancel();
+        // Strip emojis so they aren't read as words
+        const clean = t => t.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim();
+        const u = new SpeechSynthesisUtterance(`${clean(st.t)}. ${clean(st.d)}`);
+        const v = pickTourVoice(); if (v) u.voice = v;
+        u.rate = 1.0; u.pitch = 1.02; u.lang = (v && v.lang) || 'en-US';
+        window.speechSynthesis.speak(u);
     }
     function positionTour() {
         if (tourI < 0) return;
@@ -1585,6 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
         $('#tourNext').textContent = tourI === TOUR_STEPS.length - 1 ? 'Finish' : 'Next';
         if (el) el.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: st.sel === '#achFab' ? 'nearest' : 'center' });
         setTimeout(positionTour, reduceMotion ? 60 : 480);
+        narrateTourStep();
         sfx('click');
     }
     function startTour() {
@@ -1618,6 +1792,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function endTour() {
         if (tourI < 0) return;
         stopTourAuto();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         tourI = -1;
         tourEls.ring.remove(); tourEls.tip.remove(); tourEls.quit.remove();
         window.removeEventListener('scroll', positionTour);
@@ -1835,7 +2010,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!w || w.classList.contains('boot') || w.classList.contains('no-anim')) return;
         w.classList.add(reduceMotion ? 'no-anim' : 'boot');
     }
-    window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 950));
+    // Animated loading percentage — counts up smoothly then the loader fades out
+    (function loaderCount() {
+        const pctEl = $('#loaderPct'); if (!pctEl || reduceMotion) return;
+        let pct = 0;
+        const tick = () => {
+            // ease toward 100, slowing near the end for a polished feel
+            pct += Math.max(1, Math.round((100 - pct) * 0.12));
+            if (pct >= 100) { pct = 100; pctEl.textContent = '100%'; return; }
+            pctEl.textContent = pct + '%';
+            setTimeout(tick, 90 + Math.random() * 70);
+        };
+        setTimeout(tick, 700);
+    })();
+    window.addEventListener('load', () => setTimeout(() => { const p = $('#loaderPct'); if (p) p.textContent = '100%'; $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 950));
     setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, 2600); // safety
 
     /* ===================== SCROLL PROGRESS ===================== */
@@ -2423,8 +2611,7 @@ document.addEventListener('DOMContentLoaded', () => {
         catch { return ''; }
     }
     function ccAvatarColor(name) {
-        let hash = 0; for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
-        return `hsl(${hash} 55% 52%)`;
+        return `hsl(${ccHash(name) % 360} 62% 54%)`;
     }
     // Deterministic hash → stable avatar features per name
     function ccHash(name) {
@@ -2432,48 +2619,62 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const ch of (name || '?')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
         return (h >>> 0);
     }
-    // Procedural line-art portrait — minimalist monochrome faces (like the reference,
-    // but redrawn to match the portfolio). Each name yields a unique, stable face.
+    // Device kind, as accurately as the browser allows (UA-CH first, then UA +
+    // touch points so iPadOS-as-desktop and Android tablets are not mislabelled).
+    function ccDeviceInfo() {
+        const ua = navigator.userAgent || '';
+        const uad = navigator.userAgentData;
+        const touch = navigator.maxTouchPoints || 0;
+        let kind;
+        if (/iPad|Tablet|PlayBook|Silk/i.test(ua) || (/Macintosh/i.test(ua) && touch > 1) || (/Android/i.test(ua) && !/Mobile/i.test(ua))) kind = 'tablet';
+        else if (uad && typeof uad.mobile === 'boolean') kind = uad.mobile ? 'phone' : 'desktop';
+        else kind = /Mobi|iPhone|iPod|Android|Windows Phone/i.test(ua) ? 'phone' : 'desktop';
+        return {
+            phone: { icon: '\u{1F4F1}', label: 'Mobile' },
+            tablet: { icon: '\u{1F4F1}', label: 'Tablet' },
+            desktop: { icon: '\u{1F5A5}\uFE0F', label: 'Desktop' }
+        }[kind];
+    }
+
+    // Generative identity mark — abstract, minimal and animated rather than a face.
+    // Colour, motif, ring rhythm and orbit are all derived from the name, so every
+    // visitor gets a distinct look; the shape language follows the chosen gender.
     function ccAvatar(name, online, gender) {
         const h = ccHash(name);
-        const pick = (shift, mod) => ((h >> shift) & 0xff) % mod;
-        const face = ['M18 30c0-8 4-13 12-13s12 5 12 13-5 14-12 14-12-6-12-14z',           // oval
-            'M17 29c0-7 5-12 13-12s13 5 13 12-4 15-13 15-13-8-13-15z',            // round
-            'M18 28c0-7 5-11 12-11s12 4 12 11-3 16-12 16-12-9-12-16z'][pick(2, 3)]; // long
-        // Gendered hairstyles — women get longer/flowing styles, men get shorter cuts.
-        const womanHair = [
-            'M13 30c0-12 7-18 17-18s17 6 17 18c0 8-1 12-2 20l-3-1c1-6 1-10 1-15-2 3-6 4-13 4s-11-1-13-4c0 5 0 9 1 15l-3 1c-1-8-2-12-2-20z', // long straight
-            'M12 30c0-13 8-19 18-19s18 6 18 19c1 6-1 12-3 17l-3-2c1-3 2-6 1-9-2 3-3 4-5 4 1-2 1-4 0-6-2 3-8 5-14 4-4-1-7-3-8-7-1 3-1 8 0 12l-3 1c-2-6-2-11-2-18z', // wavy long
-            'M14 27c0-9 7-15 16-15s16 6 16 15c0 7-1 11-2 15l-2-1c1-4 1-7 1-11-2 3-6 4-13 4s-9-1-11-4c-1 4-1 8 0 12l-3 1c-1-5-2-9-2-16z'  // shoulder bob
-        ][pick(10, 3)];
-        const manHair = [
-            'M15 30c0-11 6-16 15-16s15 5 15 16c0-5-3-9-6-9 1 2 1 4 0 5-2-4-6-6-9-6s-7 2-9 6c-1-1-1-3 0-5-3 0-6 4-6 9z', // short
-            'M16 24c2-6 7-9 14-9s12 3 14 9c-2-2-4-3-6-3 1 1 2 2 2 4-3-2-6-3-10-3s-7 1-10 3c0-2 1-3 2-4-2 0-4 1-6 3z', // buzz
-            'M15 28c1-9 7-14 15-14s14 5 15 14c0-4-2-7-5-8 1 2 0 4-1 5-1-3-5-5-9-5-3 0-6 1-8 4-1-1-1-3 0-5-3 1-6 5-7 9z' // crew
-        ][pick(10, 3)];
+        const pick = (shift, mod) => ((h >>> shift) & 0xff) % mod;
+        const hue = h % 360;
+        const hue2 = (hue + 28 + pick(4, 84)) % 360;
         const g = gender === 'man' ? 'man' : (gender === 'woman' ? 'woman' : (pick(30, 2) ? 'woman' : 'man'));
-        const hair = g === 'woman' ? womanHair : manHair;
-        const brow = pick(18, 2) ? 'M23 27h5M32 27h5' : 'M23 28q2.5-1.5 5 0M32 28q2.5-1.5 5 0';
-        const mouth = ['M25 37q5 3 10 0', 'M26 37q4 2 8 0', 'M25 37h10'][pick(20, 3)];
-        const glasses = pick(24, 3) === 0
-            ? '<circle cx="26" cy="31" r="3.4" fill="none"/><circle cx="34" cy="31" r="3.4" fill="none"/><path d="M29.4 31h1.2M22.6 30.5l-1.6-.5M37.4 30.5l1.6-.5"/>'
-            : '';
-        // small accent earring for woman variants adds a subtle on-brand color pop
-        const earring = g === 'woman' && pick(28, 2)
-            ? '<circle cx="18.5" cy="34" r="1.4" fill="hsl(var(--accent-h, 20) 70% 55%)" stroke="none"/><circle cx="41.5" cy="34" r="1.4" fill="hsl(var(--accent-h, 20) 70% 55%)" stroke="none"/>'
-            : '';
-        return `<span class="cc-ava${online ? ' on' : ''}" title="${name}">
-      <svg viewBox="0 0 60 60" width="34" height="34" aria-hidden="true">
-        <circle cx="30" cy="30" r="29" fill="var(--bg-elev, #fff)" stroke="var(--line-strong, #bbb)" stroke-width="1"/>
-        <g fill="none" stroke="var(--text, #111)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="${face}"/>
-          <path d="${hair}" fill="var(--text, #111)" stroke="none"/>
-          <path d="${brow}"/>
-          <path d="M25.5 31.5v.01M34.5 31.5v.01" stroke-width="2.4"/>
-          <path d="${mouth}"/>
-          ${glasses}
-          ${earring}
+        const uid = 'cc' + h.toString(36);
+        const initial = ((String(name || '?').trim())[0] || '?').toUpperCase();
+        const rot = pick(12, 360);
+        const dash = ['1 5', '2 6', '3 4', '1 3'][pick(16, 4)];
+        const rev = pick(22, 2) ? ' rev' : '';
+        const motif = g === 'woman'
+            ? ['<path d="M30 12c7 6 10 12 10 18s-4 10-10 10-10-4-10-10 3-12 10-18z"/>',
+                '<path d="M30 14c9 4 13 11 11 18s-9 10-16 8-11-9-8-16 7-11 13-10z"/>',
+                '<circle cx="30" cy="25" r="11"/><circle cx="30" cy="37" r="7"/>'][pick(8, 3)]
+            : ['<path d="M30 13l14 9v16l-14 9-14-9V22z"/>',
+                '<path d="M18 21h24v18H18z"/><path d="M30 12l12 9-12 9-12-9z"/>',
+                '<path d="M30 13l15 25H15z"/>'][pick(8, 3)];
+        return `<span class="cc-ava${online ? ' on' : ''}${rev}" title="${name}">
+      <svg viewBox="0 0 60 60" width="36" height="36" aria-hidden="true">
+        <defs>
+          <linearGradient id="${uid}" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(${rot} .5 .5)">
+            <stop offset="0" stop-color="hsl(${hue} 70% 63%)"/>
+            <stop offset="1" stop-color="hsl(${hue2} 62% 42%)"/>
+          </linearGradient>
+          <clipPath id="${uid}c"><circle cx="30" cy="30" r="29"/></clipPath>
+        </defs>
+        <g clip-path="url(#${uid}c)">
+          <circle cx="30" cy="30" r="29" fill="url(#${uid})"/>
+          <g class="cc-motif" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.55)" stroke-width="1.1" stroke-linejoin="round">${motif}</g>
         </g>
+        <circle class="cc-ring" cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,.75)"
+          stroke-width="1.2" stroke-dasharray="${dash}" stroke-linecap="round"/>
+        <g class="cc-orb"><circle cx="30" cy="3.4" r="2.1" fill="hsl(${hue2} 85% 74%)" stroke="rgba(255,255,255,.85)" stroke-width=".7"/></g>
+        <text x="30" y="31" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="700"
+          fill="#fff" stroke="rgba(0,0,0,.25)" stroke-width="2.6" style="paint-order:stroke">${initial}</text>
       </svg>
     </span>`;
     }
@@ -2485,7 +2686,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isOwner) store.set('commOwner', true);
     window.jmjOwner = () => { isOwner = true; store.set('commOwner', true); if (commOpen) ccRerenderAll(); return 'Owner mode on — you can now delete messages.'; };
 
-    const REACTIONS = ['\u2764\ufe0f', '\U0001f44d', '\U0001f602', '\U0001f62e', '\U0001f389'];
+    const REACTIONS = ['\u2764\uFE0F', '\u{1F44D}', '\u{1F602}', '\u{1F62E}', '\u{1F389}'];
     function ccRerenderAll() {
         ccMsgs.innerHTML = '';
         ccRender({ sys: true, text: 'Chat updates live \u2014 be kind and say hi \u2728' }, false);
@@ -2504,9 +2705,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (m.mid) el.dataset.mid = m.mid;
             if (mine) el.dataset.mine = '1';
             const online = mine || peersHas(m.sid);
-            const devIcon = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
+            const dv = (m.dev || m.devLabel)
+                ? { icon: m.dev || '', label: m.devLabel || (m.dev === '\u{1F4F1}' ? 'Mobile' : 'Desktop') }
+                : (mine ? ccDeviceInfo() : null);
             const when = `${absTime(m.ts)} \u00b7 ${relTime(m.ts)}`;
-            const loc = (m.geo || m.country || '\u{1F310}') + ' ' + (m.dev || devIcon);
+            const loc = `${m.geo || m.country || '\u{1F310}'}`
+                + (dv ? ` \u00b7 <span class="cc-dev">${dv.icon} ${dv.label}</span>` : '');
             // reply quote
             let quote = '';
             if (m.replyTo) {
@@ -2527,7 +2731,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="cc-meta"><b>${m.name}</b><span>${loc} \u00b7 ${when}</span>${m.edited ? '<span class="cc-edited">(edited)</span>' : ''}</div>
           ${quote}
           <div class="cc-bubble-row">
-            <p>${m.gif ? `<img class="cc-gif" src="${m.gif}" alt="GIF" loading="lazy">` : m.text}</p>
+            <p>${m.sticker ? stickerHtml(m.sticker) : m.gif ? `<img class="cc-gif" src="${m.gif}" alt="GIF" loading="lazy">` : m.text}</p>
             <div class="cc-msg-actions">
               <button class="cc-act-btn cc-reply-btn" title="Reply" aria-label="Reply">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5v1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2535,7 +2739,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <button class="cc-act-btn cc-react-btn" title="React" aria-label="Add reaction">
                 <svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 14a4 4 0 0 0 7 0M9 9.5h.01M15 9.5h.01" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
               </button>
-              ${mine && !m.gif ? `<button class="cc-act-btn cc-edit-btn" title="Edit" aria-label="Edit message">
+              ${mine && !m.gif && !m.sticker ? `<button class="cc-act-btn cc-edit-btn" title="Edit" aria-label="Edit message">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>` : ''}
               ${(mine || isOwner) ? `<button class="cc-act-btn cc-del-btn" title="Delete" aria-label="Delete message">
@@ -2603,40 +2807,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const list = ccHistory(); list.push(m); ccSaveHistory(list); if (commOpen) ccRender(m);
         }
     };
+    let ccGeoCache = null;
     async function ccGeo() {
-        // Privacy-conscious: show only an approximate, IP-based general location
-        // (city/municipality + country). No IP address is shown. Never uses GPS.
-        // Queries multiple providers and prefers the most specific place name.
-        async function tryIpwho() {
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
-            const res = await fetch('https://ipwho.is/', { signal: ctl.signal });
-            const d = await res.json();
-            if (d && d.success === false) throw new Error('ipwho failed');
-            return { city: d.city, region: d.region, cc: d.country_code || '' };
+        // Privacy-conscious: approximate, IP-based place name only (city/municipality
+        // and province/region). No IP address is ever shown, and GPS is never used.
+        // Several providers are queried at once and the most-agreed, most specific
+        // answer wins, which is noticeably more accurate for Philippine locations.
+        if (ccGeoCache) return ccGeoCache;
+        const saved = store.get('commGeo', null);
+        if (saved && saved.v && Date.now() - saved.t < 216e5) { ccGeoCache = saved.v; return ccGeoCache; }
+        const grab = async (url, map) => {
+            const ctl = new AbortController();
+            const t = setTimeout(() => ctl.abort(), 4000);
+            try {
+                const res = await fetch(url, { signal: ctl.signal });
+                return map(await res.json());
+            } finally { clearTimeout(t); }
+        };
+        const jobs = [
+            grab('https://ipwho.is/', d => (d && d.success === false) ? null : { city: d.city, region: d.region, cc: d.country_code || '' }),
+            grab('https://ipapi.co/json/', d => ({ city: d.city, region: d.region, cc: d.country_code || d.country || '' })),
+            grab('https://get.geojs.io/v1/ip/geo.json', d => ({ city: d.city, region: d.region, cc: d.country_code || '' })),
+            grab('https://freeipapi.com/api/json', d => ({ city: d.cityName, region: d.regionName, cc: d.countryCode || '' }))
+        ];
+        const hits = (await Promise.allSettled(jobs))
+            .map(r => r.status === 'fulfilled' ? r.value : null)
+            .filter(d => d && (d.city || d.region));
+        if (!hits.length) return (ccGeoCache = { label: '\u{1F310} Unknown', cc: '\u{1F310}' });
+        // Majority vote on the city name; ties fall back to the first provider.
+        const tally = new Map();
+        hits.forEach(d => {
+            const key = (d.city || '').trim().toLowerCase();
+            if (key) tally.set(key, (tally.get(key) || 0) + 1);
+        });
+        let best = hits.find(d => d.city) || hits[0];
+        if (tally.size) {
+            const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+            best = hits.find(d => (d.city || '').trim().toLowerCase() === top) || best;
         }
-        async function tryIpapi() {
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
-            const res = await fetch('https://ipapi.co/json/', { signal: ctl.signal });
-            const d = await res.json();
-            return { city: d.city, region: d.region, cc: d.country_code || d.country || '' };
-        }
-        async function tryGeojs() {
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 3500);
-            const res = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: ctl.signal });
-            const d = await res.json();
-            return { city: d.city, region: d.region, cc: d.country_code || '' };
-        }
-        // Prefer providers that resolve municipality-level names; fall back in order.
-        let d = null;
-        for (const fn of [tryIpwho, tryIpapi, tryGeojs]) {
-            try { d = await fn(); if (d && (d.city || d.region)) break; } catch { /* next */ }
-        }
-        if (!d) return { label: '\u{1F310} Unknown', cc: '\u{1F310}' };
-        const cc = d.cc || '';
-        // "City, CC" (e.g. "Lubao, PH"); prefer the most specific place name available.
-        const spot = d.city || d.region || '';
-        const place = spot ? `${spot}${cc ? ', ' + cc : ''}` : (cc || '\u{1F310}');
-        return { label: place, cc: cc || '\u{1F310}' };
+        const city = (best.city || '').trim();
+        const region = (best.region || '').trim();
+        const cc = (best.cc || hits.find(d => d.cc)?.cc || '').trim();
+        let place;
+        if (city && region && region.toLowerCase() !== city.toLowerCase()) place = `${city}, ${region}`;
+        else place = city || region || cc || '\u{1F310}';
+        if (place && cc && !place.includes(cc)) place += `, ${cc}`;
+        ccGeoCache = { label: place, cc: cc || '\u{1F310}' };
+        store.set('commGeo', { t: Date.now(), v: ccGeoCache });
+        return ccGeoCache;
     }
     function ccEnter() {
         ccJoin.hidden = true; ccMsgs.hidden = false; ccForm.hidden = false;
@@ -2771,8 +2989,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const text = esc(raw);
         const mid = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const dev = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
-        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, ts: Date.now(), text, replyTo: ccReplyTo || undefined }, true);
+        const dvi = ccDeviceInfo(), dev = dvi.icon, devLabel = dvi.label;
+        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, devLabel, ts: Date.now(), text, replyTo: ccReplyTo || undefined }, true);
         $('#ccText').value = '';
         clearReply();
         sfx('click');
@@ -2780,9 +2998,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ---------- Emoji picker ---------- */
     const EMOJIS = ['\u{1F60A}', '\u{1F602}', '\u{1F60D}', '\u{1F618}', '\u{1F929}', '\u{1F60E}', '\u{1F914}', '\u{1F644}', '\u{1F62D}', '\u{1F621}', '\u{1F970}', '\u{1F97A}', '\u{1F44D}', '\u{1F44E}', '\u{1F44F}', '\u{1F64C}', '\u{1F91D}', '\u{1F4AA}', '\u{1F64F}', '\u2764\uFE0F', '\u{1F9E1}', '\u{1F49B}', '\u{1F49A}', '\u{1F499}', '\u{1F49C}', '\u{1F525}', '\u2B50', '\u2728', '\u{1F389}', '\u{1F38A}', '\u{1F44B}', '\u{1F92F}', '\u{1F633}', '\u{1F971}', '\u{1F60C}', '\u{1F913}', '\u{1F643}', '\u{1F972}', '\u{1F979}', '\u{1F440}', '\u{1F4AF}', '\u{1F680}', '\u{1F44C}', '\u{1F91F}', '\u270C\uFE0F', '\u{1F340}', '\u{1F31F}', '\u{1F60B}'];
-    const ccEmojiPop = $('#ccEmojiPop'), ccGifPop = $('#ccGifPop');
+    const ccEmojiPop = $('#ccEmojiPop'), ccStickerPop = $('#ccStickerPop');
     ccEmojiPop.innerHTML = EMOJIS.map(e => `<button type="button" class="cc-emoji-item">${e}</button>`).join('');
-    function closePops() { ccEmojiPop.hidden = true; ccGifPop.hidden = true; }
+    function closePops() { ccEmojiPop.hidden = true; ccStickerPop.hidden = true; }
     $('#ccEmojiBtn').addEventListener('click', e => {
         e.stopPropagation();
         const willShow = ccEmojiPop.hidden; closePops(); ccEmojiPop.hidden = !willShow; sfx('click');
@@ -2793,48 +3011,58 @@ document.addEventListener('DOMContentLoaded', () => {
         inp.value += btn.textContent; inp.focus();
     });
 
-    /* ---------- GIF picker (Tenor public demo key) ---------- */
-    const TENOR_KEY = 'LIVDSRZULELA'; // Tenor public test key
-    const ccGifGrid = $('#ccGifGrid'), ccGifSearch = $('#ccGifSearch');
-    let gifTimer = null;
-    async function loadGifs(q) {
-        ccGifGrid.innerHTML = '<p class="cc-gif-loading">Loading…</p>';
-        try {
-            const base = q
-                ? `https://g.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=18&media_filter=minimal`
-                : `https://g.tenor.com/v1/trending?key=${TENOR_KEY}&limit=18&media_filter=minimal`;
-            const ctl = new AbortController(); setTimeout(() => ctl.abort(), 6000);
-            const res = await fetch(base, { signal: ctl.signal });
-            const data = await res.json();
-            const items = (data.results || []).map(r => {
-                const m = r.media && r.media[0];
-                const tiny = m && (m.tinygif || m.nanogif || m.gif);
-                const full = m && (m.gif || m.mediumgif || m.tinygif);
-                return tiny && full ? { preview: tiny.url, url: full.url } : null;
-            }).filter(Boolean);
-            if (!items.length) { ccGifGrid.innerHTML = '<p class="cc-gif-loading">No GIFs found.</p>'; return; }
-            ccGifGrid.innerHTML = items.map(g => `<button type="button" class="cc-gif-item" data-url="${g.url}"><img src="${g.preview}" alt="GIF" loading="lazy"></button>`).join('');
-        } catch { ccGifGrid.innerHTML = '<p class="cc-gif-loading">GIFs unavailable right now.</p>'; }
+    /* ---------- Animated stickers (pure SVG + CSS — no API, no external files) ---------- */
+    const ST = inner => `<svg viewBox="0 0 48 48" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+    const face = (extra, cls = '') => ST(`<g class="${cls}"><circle cx="24" cy="24" r="15" fill="#FFD75E" stroke="#E0A93B" stroke-width="1.3"/>${extra}</g>`);
+    const heartPath = 'M24 36S11 28.5 11 20.5A6.6 6.6 0 0 1 24 17a6.6 6.6 0 0 1 13 3.5C37 28.5 24 36 24 36z';
+    const notePath = 'M20 32V15l12-2.4V29';
+
+    const STICKERS = [
+        { id: 'wave', name: 'Wave', svg: ST(`<g class="st-wave"><rect x="17" y="19" width="14" height="17" rx="6.5" fill="#F7C59F" stroke="#B4744A" stroke-width="1.3"/><rect x="18.4" y="10" width="3.5" height="12" rx="1.7" fill="#F7C59F" stroke="#B4744A" stroke-width="1.1"/><rect x="22.4" y="8" width="3.5" height="14" rx="1.7" fill="#F7C59F" stroke="#B4744A" stroke-width="1.1"/><rect x="26.4" y="10" width="3.5" height="12" rx="1.7" fill="#F7C59F" stroke="#B4744A" stroke-width="1.1"/><path d="M17.5 25.5L13 22" stroke="#B4744A" stroke-width="1.4"/></g>`) },
+        { id: 'heart', name: 'Heart', svg: ST(`<path class="st-pulse" d="${heartPath}" fill="#F0526B"/>`) },
+        { id: 'thumb', name: 'Nice', svg: ST(`<g class="st-bob"><path d="M19 23l5.5-11a3 3 0 0 1 5 3.1L28 21h8.5a3 3 0 0 1 3 3.5l-1.6 9A4 4 0 0 1 34 37H19z" fill="#F7C59F" stroke="#B4744A" stroke-width="1.3"/><rect x="9" y="23" width="7.5" height="14" rx="2.2" fill="#5B8DEF"/></g>`) },
+        { id: 'star', name: 'Star', svg: ST(`<path class="st-twinkle" d="M24 8l4.6 9.7 10.4 1.5-7.5 7.2 1.8 10.5L24 32l-9.3 4.9 1.8-10.5L9 19.2l10.4-1.5z" fill="#F6C445" stroke="#D69A16" stroke-width="1.2"/>`) },
+        { id: 'fire', name: 'Fire', svg: ST(`<g class="st-flicker"><path d="M24 7c6.5 7.5 10.5 10.5 10.5 17.5a10.5 10.5 0 0 1-21 0c0-5 3-8.5 5.2-11.5 1 2 2 3.2 3.1 4.2C22.8 13 23.8 10 24 7z" fill="#FF7A33"/><path d="M24 22.5c2.7 3.2 4.1 4.8 4.1 7.2a4.1 4.1 0 0 1-8.2 0c0-2.4 2.1-3.8 4.1-7.2z" fill="#FFD25A"/></g>`) },
+        { id: 'sparkle', name: 'Sparkle', svg: ST(`<path class="st-sp1" d="M20 8l2.6 6.4L29 17l-6.4 2.6L20 26l-2.6-6.4L11 17l6.4-2.6z" fill="var(--accent)"/><path class="st-sp2" d="M34 22l1.8 4.2L40 28l-4.2 1.8L34 34l-1.8-4.2L28 28l4.2-1.8z" fill="var(--accent)"/><path class="st-sp3" d="M15 31l1.4 3.2L19.6 36l-3.2 1.4L15 40.6l-1.4-3.2L10.4 36l3.2-1.4z" fill="var(--accent)"/>`) },
+        { id: 'clap', name: 'Clap', svg: ST(`<g class="st-clapL"><rect x="10" y="18" width="12" height="16" rx="5.5" fill="#F7C59F" stroke="#B4744A" stroke-width="1.3" transform="rotate(-14 16 26)"/></g><g class="st-clapR"><rect x="26" y="18" width="12" height="16" rx="5.5" fill="#FBD9BC" stroke="#B4744A" stroke-width="1.3" transform="rotate(14 32 26)"/></g><path class="st-sp1" d="M24 9v4M17 11l1.6 3M31 11l-1.6 3" stroke="var(--accent)" stroke-width="1.8"/>`) },
+        { id: 'rocket', name: 'Rocket', svg: ST(`<g class="st-fly"><path d="M27 8c6 4 8.5 10 8 18l-6.5 5h-6L16 26c-.5-8 2-14 8-18z" fill="#EDEFF5" stroke="#8A93A8" stroke-width="1.3"/><circle cx="24" cy="19" r="3.4" fill="#5B8DEF" stroke="#345FBF" stroke-width="1.2"/><path d="M16 26l-5 5 6 .5M32 26l5 5-6 .5" fill="#F0526B" stroke="#C33A50" stroke-width="1.2"/><path class="st-flicker" d="M24 32c2.4 3 3.6 4.8 3.6 6.6a3.6 3.6 0 0 1-7.2 0c0-1.8 1.2-3.6 3.6-6.6z" fill="#FF9E3D"/></g>`) },
+        { id: 'coffee', name: 'Coffee', svg: ST(`<path class="st-rise s1" d="M19 16c-2-2.4 0-4 0-6.4" stroke="#B9BFCC" stroke-width="2"/><path class="st-rise s2" d="M24 15c-2-2.6 0-4.2 0-7" stroke="#B9BFCC" stroke-width="2"/><path class="st-rise s3" d="M29 16c-2-2.4 0-4 0-6.4" stroke="#B9BFCC" stroke-width="2"/><path d="M12 20h22v9a9 9 0 0 1-9 9h-4a9 9 0 0 1-9-9z" fill="#F0EBE3" stroke="#8A7F70" stroke-width="1.4"/><path d="M34 23h3.5a3.5 3.5 0 0 1 0 7H34" stroke="#8A7F70" stroke-width="1.4"/><path d="M12 24h22v4H12z" fill="#8A5A34"/>`) },
+        { id: 'bulb', name: 'Idea', svg: ST(`<g class="st-glow"><path d="M24 8a11 11 0 0 1 6.5 19.8c-1 .8-1.5 1.7-1.5 2.9v1h-10v-1c0-1.2-.5-2.1-1.5-2.9A11 11 0 0 1 24 8z" fill="#FFD75E" stroke="#D69A16" stroke-width="1.3"/><path d="M19 34h10M20.5 38h7" stroke="#8A7F70" stroke-width="2"/></g><path class="st-sp2" d="M24 3v3M38 12l-2.6 1.6M10 12l2.6 1.6" stroke="var(--accent)" stroke-width="1.8"/>`) },
+        { id: 'check', name: 'Done', svg: ST(`<circle cx="24" cy="24" r="15" fill="none" stroke="#3FBF7F" stroke-width="2.4"/><path class="st-draw" d="M16 24.5l5.5 5.5L33 18.5" stroke="#3FBF7F" stroke-width="3.2"/>`) },
+        { id: 'party', name: 'Party', svg: ST(`<g class="st-bob"><path d="M11 38l9-19 9 9-18 10z" fill="#5B8DEF" stroke="#345FBF" stroke-width="1.3"/></g><circle class="st-cf c1" cx="30" cy="16" r="2.2" fill="#F0526B"/><circle class="st-cf c2" cx="35" cy="22" r="2" fill="#F6C445"/><circle class="st-cf c3" cx="28" cy="10" r="1.8" fill="#3FBF7F"/><circle class="st-cf c4" cx="38" cy="13" r="1.8" fill="#A97BFF"/>`) },
+        { id: 'laugh', name: 'Haha', svg: face(`<path d="M15.5 20q3-3.4 6 0M26.5 20q3-3.4 6 0" stroke="#5A3E00" stroke-width="2.1"/><path d="M14.5 26.5h19a9.5 9.5 0 0 1-19 0z" fill="#7C2E22"/><path d="M19 34.5a7 7 0 0 1 10 0" fill="#F0526B"/>`, 'st-bob') },
+        { id: 'wink', name: 'Wink', svg: face(`<circle class="st-blink" cx="18.5" cy="21" r="2.1" fill="#5A3E00"/><path d="M26.5 21.5q3-3.2 6 0" stroke="#5A3E00" stroke-width="2.1"/><path d="M17 28.5a8.5 8.5 0 0 0 14 0" stroke="#5A3E00" stroke-width="2.1"/>`) },
+        { id: 'love', name: 'Love', svg: face(`<path d="M14 21.5l4-3.5 4 3.5M26 21.5l4-3.5 4 3.5" stroke="#F0526B" stroke-width="2.2"/><path d="M17 28.5a8.5 8.5 0 0 0 14 0" stroke="#5A3E00" stroke-width="2.1"/><g class="st-float f1"><path d="${heartPath}" fill="#F0526B" transform="translate(3 2) scale(.3)"/></g><g class="st-float f2"><path d="${heartPath}" fill="#F0526B" transform="translate(30 4) scale(.24)"/></g>`) },
+        { id: 'cry', name: 'Aww', svg: face(`<path d="M15.5 22q3-3 6 0M26.5 22q3-3 6 0" stroke="#5A3E00" stroke-width="2.1"/><path d="M18 31a8 8 0 0 1 12 0" stroke="#5A3E00" stroke-width="2.1"/><path class="st-tear" d="M32 23c1.7 2.5 2.5 3.8 2.5 4.9a2.5 2.5 0 0 1-5 0c0-1.1.8-2.4 2.5-4.9z" fill="#5BA9F0"/>`) },
+        { id: 'music', name: 'Music', svg: ST(`<g class="st-bob"><path d="${notePath}" stroke="#5B8DEF" stroke-width="2.4"/><ellipse cx="16.5" cy="32" rx="4.6" ry="3.5" fill="#5B8DEF"/><ellipse cx="28.5" cy="29" rx="4.6" ry="3.5" fill="#5B8DEF"/></g><g class="st-float f1"><circle cx="38" cy="18" r="2" fill="#A97BFF"/></g><path class="st-sp2" d="M38 9v3.5M36.2 10.8h3.6" stroke="#A97BFF" stroke-width="1.8"/>`) },
+        { id: 'boom', name: 'Boom', svg: ST(`<path class="st-pulse" d="M24 5l4.2 9.4L37 10l-3.4 9.2L43 24l-9.4 4.2L38 37l-9.4-3.4L24 43l-4.2-9.4L10 38l3.4-9.4L5 24l9.4-4.2L10 10l9.4 3.4z" fill="#FF8A3D" stroke="#D2622A" stroke-width="1.2"/>`) }
+    ];
+    const stickerById = id => (STICKERS.find(x => x.id === id) || null);
+    const stickerHtml = id => {
+        const st = stickerById(id);
+        return st ? `<span class="cc-sticker" role="img" aria-label="${st.name} sticker">${st.svg}</span>` : '';
+    };
+
+    const ccStickerGrid = $('#ccStickerGrid');
+    if (ccStickerGrid) {
+        ccStickerGrid.innerHTML = STICKERS
+            .map(st => `<button type="button" class="cc-sticker-item" data-sticker="${st.id}" title="${st.name}" aria-label="${st.name} sticker">${st.svg}</button>`)
+            .join('');
     }
-    $('#ccGifBtn').addEventListener('click', e => {
+    $('#ccStickerBtn').addEventListener('click', e => {
         e.stopPropagation();
-        const willShow = ccGifPop.hidden; closePops(); ccGifPop.hidden = !willShow;
-        if (willShow) { ccGifSearch.value = ''; loadGifs(''); ccGifSearch.focus(); }
-        sfx('click');
+        const willShow = ccStickerPop.hidden; closePops(); ccStickerPop.hidden = !willShow; sfx('click');
     });
-    ccGifSearch.addEventListener('input', () => {
-        clearTimeout(gifTimer); gifTimer = setTimeout(() => loadGifs(ccGifSearch.value.trim()), 400);
-    });
-    ccGifGrid.addEventListener('click', e => {
-        const btn = e.target.closest('.cc-gif-item'); if (!btn) return;
+    ccStickerGrid?.addEventListener('click', e => {
+        const btn = e.target.closest('.cc-sticker-item'); if (!btn) return;
         if (!ccMe || !ccMe.name) { ccShowNotice('Please enter a username to join first.'); return; }
         const mid = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        const dev = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? '\u{1F4F1}' : '\u{1F5A5}\uFE0F';
-        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, ts: Date.now(), gif: btn.dataset.url, text: '', replyTo: ccReplyTo || undefined }, true);
-        closePops(); clearReply(); sfx('click');
+        const dvi = ccDeviceInfo(), dev = dvi.icon, devLabel = dvi.label;
+        ccPush({ mid, sid: ccId, name: ccMe.name, gender: ccMe.gender, country: ccMe.country, geo: ccMe.geo, dev, devLabel, ts: Date.now(), sticker: btn.dataset.sticker, text: '', replyTo: ccReplyTo || undefined }, true);
+        closePops(); clearReply(); sfx('pop');
     });
     document.addEventListener('click', e => {
-        if (!e.target.closest('.cc-emoji-pop, .cc-gif-pop, #ccEmojiBtn, #ccGifBtn')) closePops();
+        if (!e.target.closest('.cc-emoji-pop, .cc-sticker-pop, #ccEmojiBtn, #ccStickerBtn')) closePops();
     });
     let ccHeartbeat = null;
     function openCommunity() {
