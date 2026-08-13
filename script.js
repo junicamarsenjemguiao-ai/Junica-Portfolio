@@ -562,8 +562,9 @@ document.addEventListener('DOMContentLoaded', () => {
         GRADIENTS.forEach((g, i) => {
             const b = document.createElement('button');
             b.className = 'grad-swatch'; b.dataset.idx = i;
-            const a2 = g.a.startsWith('var') ? 'hsl(244 100% 76%)' : g.a;
-            const b2 = g.b.startsWith('var') ? 'hsl(244 100% 68%)' : g.b;
+            // Use the live accent variables so the default swatch always shows the real
+            // colour (black in light mode, white in dark) instead of a stand-in violet.
+            const a2 = g.a, b2 = g.b;
             b.style.background = `linear-gradient(120deg, ${a2}, ${b2})`;
             b.setAttribute('aria-label', g.name); b.title = g.name;
             b.addEventListener('click', () => { state.grad = i; store.set('grad2', i); applyGradient(); sfx('click'); });
@@ -659,28 +660,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5C4.98 4.6 4.1 5.5 3 5.5S1 4.6 1 3.5 1.9 1.5 3 1.5s1.98.9 1.98 2zM1.4 8.75h3.2V23H1.4V8.75zM8.5 8.75h3.07v1.95h.04c.43-.81 1.48-1.66 3.05-1.66 3.26 0 3.86 2.15 3.86 4.94V23h-3.2v-6.87c0-1.64-.03-3.75-2.29-3.75-2.29 0-2.64 1.79-2.64 3.63V23H8.5V8.75z"/></svg>
           LinkedIn
         </a>
-      </div>
-      <div class="panel-group"><span class="panel-label">Theme</span>
-        <div class="seg"><button data-theme-choice="light">Light</button><button data-theme-choice="dark">Dark</button></div>
-      </div>
-      <div class="panel-group"><span class="panel-label">Accent</span><div class="swatch-row" id="accentSwatchesM"></div>
-        <div class="accent-custom">
-          <label class="accent-dot"><input type="color" value="#7C6CFF" aria-label="Custom accent colour"></label>
-          <input type="text" class="accent-hex" placeholder="#RRGGBB" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Custom accent hex code">
-          <button type="button" class="accent-apply">Apply</button>
-        </div>
-      </div>
-      <div class="panel-group"><span class="panel-label">Gradient</span><div class="grad-row" id="gradSwatchesM"></div></div>`;
-        buildSwatches($('#accentSwatchesM'), $('#gradSwatchesM'));
+      </div>`;
         $('#navPrefsBtn')?.addEventListener('click', () => {
             document.getElementById('navMenu')?.classList.remove('open');
             document.getElementById('navToggle')?.setAttribute('aria-expanded', 'false');
             openPanel(appPanel); sfx('pop');
         });
-        $$('#navMenuExtra [data-theme-choice]').forEach(b => b.addEventListener('click', () => {
-            state.theme = b.dataset.themeChoice; store.set('theme', state.theme);
-            applyTheme(); updateAvatarMode(); sfx('switch'); unlock('theme');
-        }));
     }
 
     // Initial paint
@@ -1923,7 +1908,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function confettiBurst(x, y) {
         if (reduceMotion) return;
-        const colors = [getComputedStyle(html).getPropertyValue('--accent').trim() || '#fff', '#FFD86B', '#7FB8FF', '#FF7FA5'];
+        const cs = getComputedStyle(html);
+        const accent = cs.getPropertyValue('--accent').trim() || '#fff';
+        const gradA = cs.getPropertyValue('--grad-a').trim() || accent;
+        const gradB = cs.getPropertyValue('--grad-b').trim() || accent;
+        const colors = [accent, gradA, gradB, cs.getPropertyValue('--text-dim').trim() || accent];
         for (let i = 0; i < 16; i++) {
             const c = document.createElement('span');
             c.className = 'confetti';
@@ -2636,45 +2625,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }[kind];
     }
 
-    // Generative identity mark — abstract, minimal and animated rather than a face.
-    // Colour, motif, ring rhythm and orbit are all derived from the name, so every
-    // visitor gets a distinct look; the shape language follows the chosen gender.
     function ccAvatar(name, online, gender) {
         const h = ccHash(name);
         const pick = (shift, mod) => ((h >>> shift) & 0xff) % mod;
-        const hue = h % 360;
-        const hue2 = (hue + 28 + pick(4, 84)) % 360;
-        const g = gender === 'man' ? 'man' : (gender === 'woman' ? 'woman' : (pick(30, 2) ? 'woman' : 'man'));
         const uid = 'cc' + h.toString(36);
         const initial = ((String(name || '?').trim())[0] || '?').toUpperCase();
+        const g = gender === 'man' ? 'man' : (gender === 'woman' ? 'woman' : (pick(30, 2) ? 'woman' : 'man'));
+        // Very low saturation keeps every avatar on-brand with the monochrome UI
+        // while still letting people tell each other apart at a glance.
+        const hue = h % 360;
+        const tint = `hsl(${hue} 24% 52%)`;
         const rot = pick(12, 360);
-        const dash = ['1 5', '2 6', '3 4', '1 3'][pick(16, 4)];
+        // Women get a soft continuous arc, men a segmented one — a quiet distinction.
+        const dash = g === 'woman' ? ['46 120', '62 120', '38 120'][pick(8, 3)]
+            : ['10 8', '14 7', '6 6'][pick(8, 3)];
         const rev = pick(22, 2) ? ' rev' : '';
-        const motif = g === 'woman'
-            ? ['<path d="M30 12c7 6 10 12 10 18s-4 10-10 10-10-4-10-10 3-12 10-18z"/>',
-                '<path d="M30 14c9 4 13 11 11 18s-9 10-16 8-11-9-8-16 7-11 13-10z"/>',
-                '<circle cx="30" cy="25" r="11"/><circle cx="30" cy="37" r="7"/>'][pick(8, 3)]
-            : ['<path d="M30 13l14 9v16l-14 9-14-9V22z"/>',
-                '<path d="M18 21h24v18H18z"/><path d="M30 12l12 9-12 9-12-9z"/>',
-                '<path d="M30 13l15 25H15z"/>'][pick(8, 3)];
         return `<span class="cc-ava${online ? ' on' : ''}${rev}" title="${name}">
-      <svg viewBox="0 0 60 60" width="36" height="36" aria-hidden="true">
-        <defs>
-          <linearGradient id="${uid}" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(${rot} .5 .5)">
-            <stop offset="0" stop-color="hsl(${hue} 70% 63%)"/>
-            <stop offset="1" stop-color="hsl(${hue2} 62% 42%)"/>
-          </linearGradient>
-          <clipPath id="${uid}c"><circle cx="30" cy="30" r="29"/></clipPath>
-        </defs>
-        <g clip-path="url(#${uid}c)">
-          <circle cx="30" cy="30" r="29" fill="url(#${uid})"/>
-          <g class="cc-motif" fill="rgba(255,255,255,.18)" stroke="rgba(255,255,255,.55)" stroke-width="1.1" stroke-linejoin="round">${motif}</g>
+      <svg viewBox="0 0 48 48" width="36" height="36" aria-hidden="true">
+        <circle cx="24" cy="24" r="20" fill="var(--bg-elev)" stroke="var(--line-strong)" stroke-width="1"/>
+        <circle cx="24" cy="24" r="20" fill="${tint}" opacity=".14"/>
+        <g class="cc-ring" transform="rotate(${rot} 24 24)">
+          <circle cx="24" cy="24" r="20" fill="none" stroke="${tint}"
+            stroke-width="1.6" stroke-dasharray="${dash}" stroke-linecap="round" opacity=".9"/>
         </g>
-        <circle class="cc-ring" cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,.75)"
-          stroke-width="1.2" stroke-dasharray="${dash}" stroke-linecap="round"/>
-        <g class="cc-orb"><circle cx="30" cy="3.4" r="2.1" fill="hsl(${hue2} 85% 74%)" stroke="rgba(255,255,255,.85)" stroke-width=".7"/></g>
-        <text x="30" y="31" text-anchor="middle" dominant-baseline="central" font-size="18" font-weight="700"
-          fill="#fff" stroke="rgba(0,0,0,.25)" stroke-width="2.6" style="paint-order:stroke">${initial}</text>
+        <text x="24" y="25" text-anchor="middle" dominant-baseline="central"
+          font-family="var(--font-display, sans-serif)" font-size="16" font-weight="600"
+          letter-spacing="-.02em" fill="var(--text)">${initial}</text>
       </svg>
     </span>`;
     }

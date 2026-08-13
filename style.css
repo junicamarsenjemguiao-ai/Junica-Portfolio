@@ -9765,3 +9765,173 @@ input,
         flex-shrink: 0;
     }
 }
+
+/* ==========================================================================
+   V16 — roomier forum message field, honest default gradient swatch
+   ========================================================================== */
+
+/* The chat column was the narrow half of the grid, leaving the message field
+   at ~181px on a 1440px screen. Give the chat more room and tighten the row. */
+@media (min-width: 861px) {
+    .community-grid {
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    }
+}
+
+.cc-input {
+    gap: .3rem;
+    padding: .55rem .6rem;
+}
+
+.cc-input input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: .6rem .95rem;
+    font-size: .9rem;
+    border-radius: 999px;
+}
+
+@media (pointer: fine) {
+    .cc-input button {
+        width: 36px;
+        height: 36px;
+    }
+}
+
+.cc-input input::placeholder {
+    opacity: .75;
+}
+
+/* Gradient swatches now render the real variables, so the default one is a
+   flat monochrome chip — keep a hairline so it stays visible in both modes. */
+.grad-swatch {
+    border: 1px solid var(--line-strong);
+}
+
+/* ==========================================================================
+   V17 — mobile chat legibility, calm on-brand avatars, picker label
+   ========================================================================== */
+
+/* ---------- Custom colour picker label ---------- */
+.panel-sublabel {
+    display: block;
+    margin-top: .85rem;
+    margin-bottom: .1rem;
+    font-size: .74rem;
+    color: var(--text-dim);
+}
+
+/* ---------- Avatar: monochrome mark, ring turns only while online ---------- */
+.cc-ava svg {
+    border-radius: 50%;
+    overflow: visible;
+}
+
+.cc-ava .cc-ring {
+    transform-box: view-box;
+    transform-origin: 50% 50%;
+}
+
+.cc-ava.on .cc-ring {
+    animation: cc-spin 26s linear infinite;
+}
+
+.cc-ava.on.rev .cc-ring {
+    animation-direction: reverse;
+}
+
+.cc-ava:not(.on) svg {
+    filter: grayscale(1) opacity(.55);
+}
+
+.cc-ava.on svg {
+    filter: none;
+    animation: cc-ava-bob 5s ease-in-out infinite;
+}
+
+/* ---------- Community chat on phones: text was ~13px in a cramped column ---------- */
+@media (max-width: 860px) {
+    .community-chat {
+        min-height: 460px;
+        max-height: 68vh;
+    }
+
+    .cc-msgs {
+        padding: .85rem .8rem;
+        gap: .85rem;
+    }
+
+    .cc-msg {
+        gap: .55rem;
+    }
+
+    .cc-ava {
+        width: 38px;
+        height: 38px;
+    }
+
+    .cc-ava svg {
+        width: 38px;
+        height: 38px;
+    }
+
+    .cc-meta {
+        gap: .35rem;
+    }
+
+    .cc-meta b {
+        font-size: .88rem;
+    }
+
+    .cc-meta span {
+        font-size: .66rem;
+    }
+
+    .cc-body p {
+        font-size: .95rem;
+        line-height: 1.55;
+    }
+
+    .cc-msg:not(.me):not(.sys) .cc-body p,
+    .cc-msg.me .cc-body p {
+        padding: .55rem .8rem;
+    }
+
+    .cc-bubble-row {
+        gap: .25rem;
+    }
+
+    .cc-msg.sys p {
+        font-size: .72rem;
+    }
+
+    .cc-sticker {
+        width: 112px;
+        height: 112px;
+    }
+
+    .cc-quote span {
+        font-size: .8rem;
+    }
+
+    .cc-input {
+        padding: .6rem;
+    }
+
+    .cc-input input {
+        font-size: 16px;
+        padding: .65rem 1rem;
+    }
+}
+
+@media (max-width: 420px) {
+    .cc-body p {
+        font-size: .92rem;
+    }
+
+    .cc-ava,
+    .cc-ava svg {
+        width: 34px;
+        height: 34px;
+    }
+}
