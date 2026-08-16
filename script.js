@@ -221,63 +221,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ===================== THEME PRESETS ===================== */
     const PRESETS = [
-        { id: 'mono', name: 'Minimal Mono', sw: 'linear-gradient(120deg,#0B0B0C 50%,#F6F5F2 50%)' },
+        { id: 'mono', em: '\u25D0', name: 'Minimal Mono', sw: 'linear-gradient(120deg,#0B0B0C 50%,#F6F5F2 50%)' },
         {
-            id: 'barbie', name: 'Barbie', h: 325, s: 88, l: 62, ink: '#fff', mode: 'light', ambient: 'ribbon',
+            id: 'barbie', em: '\u{1F380}', name: 'Barbie', h: 325, s: 88, l: 62, ink: '#fff', mode: 'light', ambient: 'ribbon',
             gradA: 'hsl(325 95% 70%)', gradB: 'hsl(300 80% 60%)',
             sw: 'linear-gradient(120deg,#FF5FA2,#E14FD1)',
             bg: { dark: { bg: '#22091A', elev: '#31112A', elev2: '#3D1735' }, light: { bg: '#FFF1F8', elev: '#FCE3F0', elev2: '#F8D3E8' } }
         },
         {
-            id: 'spiderman', name: 'Spider-Man', h: 356, s: 82, l: 56, ink: '#fff', ambient: 'web',
+            id: 'spiderman', em: '\u{1F578}\uFE0F', name: 'Spider-Man', h: 356, s: 82, l: 56, ink: '#fff', ambient: 'web',
             gradA: 'hsl(356 82% 60%)', gradB: 'hsl(218 85% 58%)',
             sw: 'linear-gradient(120deg,#E23636,#2B6CD4)',
             bg: { dark: { bg: '#0B0F22', elev: '#131A33', elev2: '#1A2240' }, light: { bg: '#F5F7FE', elev: '#EAEEFB', elev2: '#DEE5F7' } }
         },
         {
-            id: 'cyberpunk', name: 'Cyberpunk', h: 184, s: 95, l: 55, ink: '#04141A', mode: 'dark',
+            id: 'cyberpunk', em: '\u26A1', name: 'Cyberpunk', h: 184, s: 95, l: 55, ink: '#04141A', mode: 'dark',
             gradA: 'hsl(184 95% 58%)', gradB: 'hsl(315 95% 62%)',
             sw: 'linear-gradient(120deg,#12E6E6,#F03CC3)',
             bg: { dark: { bg: '#05070F', elev: '#0B1020', elev2: '#111830' }, light: { bg: '#F2F7F8', elev: '#E5EFF1', elev2: '#D7E7EA' } }
         },
         {
-            id: 'aurora', name: 'Aurora', h: 162, s: 72, l: 55, ink: '#06231A',
+            id: 'aurora', em: '\u{1F30C}', name: 'Aurora', h: 162, s: 72, l: 55, ink: '#06231A',
             gradA: 'hsl(162 80% 58%)', gradB: 'hsl(255 80% 68%)',
             sw: 'linear-gradient(120deg,#33D6A6,#8A7BFF)',
             bg: { dark: { bg: '#06110F', elev: '#0C1B18', elev2: '#122521' }, light: { bg: '#F2FAF7', elev: '#E4F3EC', elev2: '#D5EBE1' } }
         },
         {
-            id: 'galaxy', name: 'Galaxy', h: 262, s: 85, l: 68, ink: '#fff', mode: 'dark',
+            id: 'galaxy', em: '\u2728', name: 'Galaxy', h: 262, s: 85, l: 68, ink: '#fff', mode: 'dark',
             gradA: 'hsl(230 85% 68%)', gradB: 'hsl(300 80% 68%)',
             sw: 'linear-gradient(120deg,#5C6CFF,#C45CFF)',
             bg: { dark: { bg: '#0A0716', elev: '#130E26', elev2: '#1B1535' }, light: { bg: '#F6F4FC', elev: '#ECE8F8', elev2: '#E0DAF2' } }
         },
         {
-            id: 'ocean', name: 'Ocean Breeze', h: 199, s: 88, l: 55, ink: '#04202B', mode: 'light',
+            id: 'ocean', em: '\u{1F30A}', name: 'Ocean Breeze', h: 199, s: 88, l: 55, ink: '#04202B', mode: 'light',
             gradA: 'hsl(185 85% 55%)', gradB: 'hsl(215 90% 58%)',
             sw: 'linear-gradient(120deg,#23C3E0,#2E7DF0)',
             bg: { dark: { bg: '#051019', elev: '#0A1A27', elev2: '#102434' }, light: { bg: '#F0F8FB', elev: '#E1F0F6', elev2: '#D1E7F0' } }
         },
         {
-            id: 'sakura', name: 'Sakura Blossom', h: 340, s: 72, l: 66, ink: '#3A0F1F', mode: 'light',
+            id: 'sakura', em: '\u{1F338}', name: 'Sakura Blossom', h: 340, s: 72, l: 66, ink: '#3A0F1F', mode: 'light',
             gradA: 'hsl(340 85% 74%)', gradB: 'hsl(20 85% 70%)',
             sw: 'linear-gradient(120deg,#F591B2,#F5A98D)',
             bg: { dark: { bg: '#170D11', elev: '#22151B', elev2: '#2C1B23' }, light: { bg: '#FDF4F6', elev: '#F9E7EC', elev2: '#F4D9E1' } }
         },
         {
-            id: 'golden', name: 'Golden Hour', h: 36, s: 92, l: 55, ink: '#241300',
+            id: 'golden', em: '\u{1F31F}', name: 'Golden Hour', h: 36, s: 92, l: 55, ink: '#241300',
             gradA: 'hsl(36 95% 58%)', gradB: 'hsl(350 80% 62%)',
             sw: 'linear-gradient(120deg,#F2A93B,#E9556D)',
             bg: { dark: { bg: '#140E05', elev: '#1F160A', elev2: '#291E0F' }, light: { bg: '#FBF5EB', elev: '#F5EAD7', elev2: '#EFDFC4' } }
         },
         {
-            id: 'amoled', name: 'AMOLED Black', h: 210, s: 100, l: 62, ink: '#fff', mode: 'dark',
+            id: 'amoled', em: '\u{1F311}', name: 'AMOLED Black', h: 210, s: 100, l: 62, ink: '#fff', mode: 'dark',
             gradA: 'hsl(210 100% 66%)', gradB: 'hsl(190 90% 58%)',
             sw: 'linear-gradient(120deg,#000 55%,#2E90FF)',
             bg: { dark: { bg: '#000000', elev: '#0C0C0E', elev2: '#141416' }, light: { bg: '#F6F6F6', elev: '#ECECEC', elev2: '#E0E0E0' } }
         },
         { // Secret prize theme — unlocked by finishing Explorer Quest
-            id: 'legendgold', name: 'Legend Gold ✦', secret: true, h: 44, s: 90, l: 56, ink: '#241300',
+            id: 'legendgold', em: '\u2726', name: 'Legend Gold ✦', secret: true, h: 44, s: 90, l: 56, ink: '#241300',
             gradA: 'hsl(48 95% 62%)', gradB: 'hsl(30 90% 50%)',
             sw: 'linear-gradient(120deg,#F3C13B,#E58A2F)',
             bg: { dark: { bg: '#120D03', elev: '#1D1508', elev2: '#271D0D' }, light: { bg: '#FCF6E8', elev: '#F7EDD3', elev2: '#F1E3BE' } }
@@ -513,7 +513,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addPresetBtn(p) {
         const b = document.createElement('button');
         b.className = 'preset-btn'; b.dataset.preset = p.id;
-        b.innerHTML = `<span class="preset-swatch" style="background:${p.sw}"></span><span class="preset-name">${p.name}</span>`;
+        b.innerHTML = `<span class="preset-swatch" style="background:${p.sw}"></span><span class="preset-name">${p.em ? p.em + ' ' : ''}${p.name}</span>`;
         b.addEventListener('click', () => selectPreset(p));
         presetGrid.appendChild(b);
     }
@@ -607,6 +607,7 @@ document.addEventListener('DOMContentLoaded', () => {
         store.set('theme', state.theme); applyTheme(); updateAvatarMode(); sfx('switch'); unlock('theme');
     });
     $$('[data-ambient]').forEach(b => b.addEventListener('click', () => {
+        if (b.dataset.ambient !== 'off') store.set('ambientOptIn', true);
         state.ambient = b.dataset.ambient; store.set('ambient', state.ambient); applyAmbient(); sfx('click');
     }));
     $$('[data-grid-choice]').forEach(b => b.addEventListener('click', () => {
@@ -1463,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cvDataReq) return cvDataReq;
         cvDataReq = new Promise((resolve, reject) => {
             const sc = document.createElement('script');
-            sc.src = 'cv-data.js?v=12';
+            sc.src = 'cv-data.js?v=16';
             sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
             sc.onerror = () => reject(new Error('missing'));
             document.head.appendChild(sc);
@@ -1872,7 +1873,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => confettiBurst(window.innerWidth * (0.15 + Math.random() * 0.7), window.innerHeight * (0.25 + Math.random() * 0.4)), i * 180);
         }
         const toast = document.createElement('div'); toast.className = 'ach-toast';
-        toast.innerHTML = `<span class="ach-ico" style="width:34px;height:34px;border-radius:10px">${qicon(['M7 21h10M12 17v4', 'M6 3h12v5a6 6 0 0 1-12 0V3z', 'M6 5H3.5a3 3 0 0 0 3 4M18 5h2.5a3 3 0 0 1-3 4'])}</span><div><strong>Gift opened!</strong> Secret theme unlocked: <span class="t-xp">Legend Gold ✦</span></div>`;
+        toast.innerHTML = `<span class="ach-ico">${qicon(['M7 21h10M12 17v4', 'M6 3h12v5a6 6 0 0 1-12 0V3z', 'M6 5H3.5a3 3 0 0 0 3 4M18 5h2.5a3 3 0 0 1-3 4'])}</span><div><strong>Gift opened!</strong> Secret theme unlocked: <span class="t-xp">Legend Gold ✦</span></div>`;
         $('#achToastWrap').appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .4s'; setTimeout(() => toast.remove(), 400); }, 3200);
         renderGift();
@@ -1933,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newLv = questLevel(questXp());
         // toast
         const toast = document.createElement('div'); toast.className = 'ach-toast';
-        toast.innerHTML = `<span class="ach-ico" style="width:34px;height:34px;border-radius:10px">${qicon(q.ic)}</span><div><strong>Quest complete</strong> — ${q.t} <span class="t-xp">+${q.xp} XP</span></div>`;
+        toast.innerHTML = `<span class="ach-ico">${qicon(q.ic)}</span><div><strong>Quest complete</strong> — ${q.t} <span class="t-xp">+${q.xp} XP</span></div>`;
         $('#achToastWrap').appendChild(toast);
         setTimeout(() => { toast.classList.add('leaving'); setTimeout(() => toast.remove(), 450); }, 2800);
         // effects
@@ -1942,7 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sfx(newLv > prevLv ? 'level' : 'unlock');
         if (newLv > prevLv) {
             const lvToast = document.createElement('div'); lvToast.className = 'ach-toast';
-            lvToast.innerHTML = `<span class="ach-ico" style="width:34px;height:34px;border-radius:10px">${qicon(['M12 3l2.2 4.9L19 9l-4 3.4 1.2 5.1L12 14.8 7.8 17.5 9 12.4 5 9l4.8-1.1L12 3z'])}</span><div><strong>Level up!</strong> You're now <span class="t-xp">${RANKS[newLv - 1].name}</span></div>`;
+            lvToast.innerHTML = `<span class="ach-ico">${qicon(['M12 3l2.2 4.9L19 9l-4 3.4 1.2 5.1L12 14.8 7.8 17.5 9 12.4 5 9l4.8-1.1L12 3z'])}</span><div><strong>Level up!</strong> You're now <span class="t-xp">${RANKS[newLv - 1].name}</span></div>`;
             setTimeout(() => {
                 $('#achToastWrap').appendChild(lvToast);
                 confettiBurst(window.innerWidth / 2, window.innerHeight * 0.8);
@@ -1999,21 +2000,41 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!w || w.classList.contains('boot') || w.classList.contains('no-anim')) return;
         w.classList.add(reduceMotion ? 'no-anim' : 'boot');
     }
-    // Animated loading percentage — counts up smoothly then the loader fades out
-    (function loaderCount() {
-        const pctEl = $('#loaderPct'); if (!pctEl || reduceMotion) return;
-        let pct = 0;
+    // Loading line — fills as the page loads, easing and holding near the end,
+    // then completing the moment everything is ready.
+    (function loaderBar() {
+        const bar = document.querySelector('.loader-line span');
+        if (!bar) return;
+        const set = v => { bar.style.transform = 'scaleX(' + Math.min(1, Math.max(0, v)) + ')'; };
+        if (reduceMotion) { set(1); return; }
+        let p = 0, done = false;
+        set(0);
         const tick = () => {
-            // ease toward 100, slowing near the end for a polished feel
-            pct += Math.max(1, Math.round((100 - pct) * 0.12));
-            if (pct >= 100) { pct = 100; pctEl.textContent = '100%'; return; }
-            pctEl.textContent = pct + '%';
-            setTimeout(tick, 90 + Math.random() * 70);
+            if (done) return;
+            p += Math.max(0.006, (0.9 - p) * 0.045);
+            if (p > 0.9) p = 0.9;
+            set(p);
+            requestAnimationFrame(tick);
         };
-        setTimeout(tick, 700);
+        requestAnimationFrame(tick);
+        const finish = () => { done = true; set(1); };
+        window.addEventListener('load', finish);
+        setTimeout(finish, 2400);
     })();
-    window.addEventListener('load', () => setTimeout(() => { const p = $('#loaderPct'); if (p) p.textContent = '100%'; $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 950));
+    window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 950));
     setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, 2600); // safety
+
+    /* Land on the hero on every fresh visit — browsers otherwise restore the
+       previous scroll position, dropping visitors into the middle of the page. */
+    (function () {
+        if (location.hash) return;
+        const toTop = () => window.scrollTo(0, 0);
+        toTop();
+        window.addEventListener('load', () => { toTop(); setTimeout(toTop, 60); });
+    })();
+
+    document.documentElement.setAttribute('data-build', '16');
+    console.log('%cportfolio build 16', 'font-weight:600');
 
     /* ===================== SCROLL PROGRESS ===================== */
     const progress = $('#scrollProgress');
@@ -2272,7 +2293,10 @@ document.addEventListener('DOMContentLoaded', () => {
         syncAmbientButtons();
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         ctx2d && ctx2d.clearRect(0, 0, W, H);
-        if (state.ambient === 'off' || reduceMotion) return;
+        // Reduce Motion suppresses ambient by default, but if someone deliberately
+        // picks an effect in Edit Preferences we honour that choice.
+        if (state.ambient === 'off') return;
+        if (reduceMotion && !store.get('ambientOptIn', false)) return;
         resizeCanvas(); refreshAccentCss(); initParticles(); drawAmbient();
     }
     window.addEventListener('resize', () => { resizeCanvas(); onScroll(); updateTimeline(); if (state.ambient !== 'off' && !reduceMotion) initParticles(); });
@@ -2635,19 +2659,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // while still letting people tell each other apart at a glance.
         const hue = h % 360;
         const tint = `hsl(${hue} 24% 52%)`;
-        const rot = pick(12, 360);
-        // Women get a soft continuous arc, men a segmented one — a quiet distinction.
-        const dash = g === 'woman' ? ['46 120', '62 120', '38 120'][pick(8, 3)]
-            : ['10 8', '14 7', '6 6'][pick(8, 3)];
-        const rev = pick(22, 2) ? ' rev' : '';
-        return `<span class="cc-ava${online ? ' on' : ''}${rev}" title="${name}">
+        // Gender gives a subtle weight difference to the disc edge, nothing more.
+        const edge = g === 'woman' ? 1 : 1.6;
+        return `<span class="cc-ava${online ? ' on' : ''}" title="${name}">
       <svg viewBox="0 0 48 48" width="36" height="36" aria-hidden="true">
-        <circle cx="24" cy="24" r="20" fill="var(--bg-elev)" stroke="var(--line-strong)" stroke-width="1"/>
+        <circle cx="24" cy="24" r="20" fill="var(--bg-elev)" stroke="${tint}" stroke-width="${edge}" opacity=".85"/>
         <circle cx="24" cy="24" r="20" fill="${tint}" opacity=".14"/>
-        <g class="cc-ring" transform="rotate(${rot} 24 24)">
-          <circle cx="24" cy="24" r="20" fill="none" stroke="${tint}"
-            stroke-width="1.6" stroke-dasharray="${dash}" stroke-linecap="round" opacity=".9"/>
-        </g>
         <text x="24" y="25" text-anchor="middle" dominant-baseline="central"
           font-family="var(--font-display, sans-serif)" font-size="16" font-weight="600"
           letter-spacing="-.02em" fill="var(--text)">${initial}</text>
@@ -2684,7 +2701,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dv = (m.dev || m.devLabel)
                 ? { icon: m.dev || '', label: m.devLabel || (m.dev === '\u{1F4F1}' ? 'Mobile' : 'Desktop') }
                 : (mine ? ccDeviceInfo() : null);
-            const when = `${absTime(m.ts)} \u00b7 ${relTime(m.ts)}`;
+            const when = `${absTime(m.ts)}<i class="cc-rel"> \u00b7 ${relTime(m.ts)}</i>`;
             const loc = `${m.geo || m.country || '\u{1F310}'}`
                 + (dv ? ` \u00b7 <span class="cc-dev">${dv.icon} ${dv.label}</span>` : '');
             // reply quote

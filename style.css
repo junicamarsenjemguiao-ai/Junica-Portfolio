@@ -9935,3 +9935,751 @@ input,
         height: 34px;
     }
 }
+
+/* ==========================================================================
+   V18 — mobile chat message layout, clean avatar disc
+   ========================================================================== */
+
+/* Arc ring removed from the avatar markup; drop its animation hooks too. */
+.cc-ava .cc-ring {
+    display: none;
+}
+
+.cc-ava.on svg {
+    animation: cc-ava-bob 5s ease-in-out infinite;
+}
+
+/* ---------- Community chat messages on phones ----------
+   The bubble shared a flex row with the four action buttons, which squeezed
+   short messages into a sliver in the middle of the row. Stack them instead:
+   name + meta on one line, bubble at full readable width, actions underneath. */
+@media (max-width: 620px) {
+    .cc-msg {
+        gap: .55rem;
+        align-items: flex-start;
+    }
+
+    .cc-body {
+        flex: 1 1 auto;
+        max-width: calc(100% - 46px);
+    }
+
+    .cc-meta {
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: .4rem;
+        min-width: 0;
+    }
+
+    .cc-meta b {
+        flex: 0 0 auto;
+        font-size: .9rem;
+    }
+
+    .cc-meta>span {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: .64rem;
+    }
+
+    .cc-rel {
+        display: none;
+    }
+
+    /* keeps the meta line to one row */
+    .cc-edited {
+        flex: 0 0 auto;
+        font-size: .64rem;
+    }
+
+    /* bubble and actions stop competing for the same row */
+    .cc-bubble-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .35rem;
+    }
+
+    .cc-msg.me .cc-bubble-row {
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .cc-body p {
+        display: inline-block;
+        width: auto;
+        max-width: 100%;
+        padding: .6rem .85rem;
+        border-radius: 14px;
+        font-size: .95rem;
+        line-height: 1.5;
+    }
+
+    .cc-msg.me .cc-body p {
+        border-bottom-right-radius: 5px;
+    }
+
+    .cc-msg:not(.me):not(.sys) .cc-body p {
+        border-bottom-left-radius: 5px;
+    }
+
+    .cc-msg-actions {
+        opacity: 1;
+        gap: .15rem;
+        margin-top: .1rem;
+    }
+
+    .cc-msg.me .cc-msg-actions {
+        justify-content: flex-end;
+    }
+
+    .cc-act-btn {
+        width: 30px;
+        height: 30px;
+    }
+
+    .cc-msg.sys p {
+        font-size: .72rem;
+        padding: .45rem .8rem;
+    }
+
+    .cc-reacts {
+        margin-top: .25rem;
+    }
+
+    .cc-sticker {
+        width: 116px;
+        height: 116px;
+    }
+}
+
+@media (max-width: 380px) {
+    .cc-body {
+        max-width: calc(100% - 42px);
+    }
+
+    .cc-body p {
+        font-size: .92rem;
+    }
+}
+
+/* ==========================================================================
+   V19 — real loading line + simpler quest toast
+   ========================================================================== */
+
+/* ---------- Loading line: a bar that actually fills as the page loads ---------- */
+.loader-line {
+    position: relative;
+    margin-top: 1.75rem;
+    width: min(220px, 52vw);
+    height: 2px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+    opacity: 0;
+    animation: loader-fade .6s var(--ease) .5s forwards;
+}
+
+.loader-line span {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    animation: none;
+    /* retire the old sweep keyframes */
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg,
+            color-mix(in srgb, var(--accent) 45%, transparent), var(--accent));
+    border-radius: 2px;
+    transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* travelling highlight so the bar reads as active, not frozen */
+.loader-line::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent,
+            color-mix(in srgb, var(--text) 26%, transparent), transparent);
+    transform: translateX(-100%);
+    animation: loader-sheen 1.15s linear infinite;
+}
+
+@keyframes loader-sheen {
+    to {
+        transform: translateX(100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loader-line::after {
+        animation: none;
+        opacity: 0;
+    }
+
+    .loader-line span {
+        transform: scaleX(1);
+    }
+}
+
+/* ---------- Quest toast: no side bar, flat and quiet ---------- */
+.ach-toast {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem .85rem;
+    border-radius: var(--radius-md);
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 12px 30px -20px rgba(0, 0, 0, .55);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    font-size: .82rem;
+    color: var(--text);
+    overflow: visible;
+}
+
+.ach-toast::before {
+    display: none;
+}
+
+/* the accent side bar */
+.ach-toast .ach-ico {
+    width: 26px !important;
+    height: 26px !important;
+    border-radius: 8px !important;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    box-shadow: none;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+}
+
+.ach-toast .ach-ico svg {
+    width: 15px;
+    height: 15px;
+}
+
+.ach-toast strong {
+    font-weight: 600;
+}
+
+.ach-toast .t-xp {
+    background: none;
+    padding: 0;
+    margin-left: .3rem;
+    font-family: var(--font-mono);
+    font-size: .68rem;
+    color: var(--text-dim);
+}
+
+/* ==========================================================================
+   V19 — active loading line + simpler quest toast
+   ========================================================================== */
+
+/* ---------- Loading line: real progress fill + travelling shimmer ---------- */
+.loader-line {
+    position: relative;
+    margin-top: 1.75rem;
+    width: min(240px, 54vw);
+    height: 2px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--text) 12%, transparent);
+    overflow: hidden;
+    opacity: 0;
+    animation: loader-fade .6s var(--ease) .55s forwards;
+}
+
+/* the fill — JS drives scaleX from 0 to 1 as the page loads */
+.loader-line span {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+    background: linear-gradient(90deg,
+            color-mix(in srgb, var(--accent) 55%, transparent), var(--accent));
+    border-radius: 2px;
+    transition: transform .2s linear;
+    animation: none;
+    /* never sweep the fill itself */
+}
+
+/* the shimmer — keeps the line visibly alive even while progress is easing */
+.loader-line i {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 40%;
+    background: linear-gradient(90deg, transparent,
+            color-mix(in srgb, var(--text) 60%, transparent), transparent);
+    animation: loader-sweep 1.15s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loader-line i {
+        animation: none;
+        opacity: 0;
+    }
+
+    .loader-line span {
+        transform: scaleX(1);
+    }
+}
+
+/* ---------- Quest toast: simple pill, no accent side bar ---------- */
+.ach-toast {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .58rem .95rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-elev) 94%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 12px 30px -20px rgba(0, 0, 0, .55);
+    font-size: .82rem;
+    color: var(--text);
+    max-width: min(90vw, 420px);
+}
+
+.ach-toast::before {
+    display: none;
+}
+
+/* the accent bar you didn't want */
+.ach-toast .ach-ico {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--text-dim);
+    display: grid;
+    place-items: center;
+}
+
+.ach-toast .ach-ico svg {
+    width: 15px;
+    height: 15px;
+}
+
+.ach-toast>div {
+    min-width: 0;
+}
+
+.ach-toast strong {
+    font-weight: 600;
+}
+
+.ach-toast .t-xp {
+    background: none;
+    padding: 0;
+    margin-left: .25rem;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    color: var(--text-dim);
+}
+
+@media (max-width: 480px) {
+    .ach-toast {
+        font-size: .78rem;
+        padding: .52rem .8rem;
+        border-radius: 18px;
+    }
+}
+
+/* base .ach-ico adds padding/border — neutralise it inside the toast */
+.ach-toast-wrap .ach-toast .ach-ico {
+    box-sizing: border-box;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+}
+
+/* base .ach-ico adds padding/border — neutralise it inside the toast */
+.ach-toast-wrap .ach-toast .ach-ico {
+    box-sizing: border-box;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+}
+
+.ach-toast .ach-ico {
+    width: 22px !important;
+    height: 22px !important;
+}
+
+/* ==========================================================================
+   V20 — the forum message field gets the room it deserves
+   ========================================================================== */
+
+/* Every control in the row was a filled accent disc, so four solid circles
+   crowded a shrinking input. Only Send stays filled; the rest go quiet. */
+.cc-input button:not([type="submit"]) {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--line-strong);
+}
+
+.cc-input button:not([type="submit"]):hover,
+.cc-input button:not([type="submit"]):focus-visible {
+    color: var(--text);
+    border-color: var(--accent);
+    background: var(--glass-bg);
+}
+
+.cc-input button[type="submit"] {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+}
+
+/* Make the field read as the primary control in the row */
+.cc-input input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--glass-bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: .62rem 1rem;
+    color: var(--text);
+    transition: border-color .2s var(--ease), background .2s var(--ease);
+}
+
+.cc-input input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, var(--glass-bg));
+}
+
+/* Phones: the field takes a full row of its own, controls sit underneath —
+   no more truncated placeholder squeezed between buttons. */
+@media (max-width: 620px) {
+    .cc-input {
+        flex-wrap: wrap;
+        gap: .45rem .4rem;
+        padding: .6rem .6rem .65rem;
+    }
+
+    .cc-input input {
+        order: -1;
+        flex: 1 0 100%;
+        width: 100%;
+        font-size: 16px;
+    }
+
+    .cc-input button {
+        flex: 0 0 auto;
+    }
+
+    .cc-input button[type="submit"] {
+        margin-left: auto;
+    }
+}
+
+/* ==========================================================================
+   V21 — message field gets its own full-width row (grid, not flex)
+   ========================================================================== */
+@media (max-width: 620px) {
+    .cc-input {
+        display: grid;
+        grid-template-columns: repeat(4, auto) 1fr;
+        gap: .5rem .4rem;
+        padding: .6rem;
+        align-items: center;
+    }
+
+    .cc-input input {
+        grid-column: 1 / -1;
+        /* full width, no siblings on the row */
+        width: 100%;
+        order: 0;
+        /* neutralise the old flex ordering */
+        font-size: 16px;
+        padding: .7rem 1rem;
+    }
+
+    .cc-input button {
+        flex: none;
+    }
+
+    .cc-input button[type="submit"] {
+        justify-self: end;
+        margin-left: 0;
+    }
+}
+
+/* V21a — pin the rows explicitly (auto-placement was splitting the controls
+   above and below the field) and reclaim padding on the narrowest phones. */
+@media (max-width: 620px) {
+    .cc-input>input {
+        grid-row: 1;
+        grid-column: 1 / -1;
+    }
+
+    .cc-input>button {
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 340px) {
+    .cc-input>input {
+        padding-left: .6rem;
+        padding-right: .6rem;
+    }
+}
+
+/* V21b — four controls, four columns; the last one flexes so Send sits flush right */
+@media (max-width: 620px) {
+    .cc-input {
+        grid-template-columns: auto auto auto 1fr;
+    }
+}
+
+/* V21c — the field now occupies two rows, so the trays have less headroom
+   above it. Cap them on shorter screens (iPhone SE et al). */
+@media (max-height: 720px) {
+    .cc-emoji-pop {
+        max-height: 26vh;
+    }
+
+    .cc-gif-pop,
+    .cc-sticker-pop {
+        max-height: 34vh;
+    }
+
+    .cc-sticker-grid {
+        max-height: 24vh;
+    }
+}
+
+/* ==========================================================================
+   V22 — composer refined: grouped toolbar, taller field, calmer send
+   ========================================================================== */
+@media (max-width: 620px) {
+    .cc-input {
+        grid-template-columns: auto auto auto 1fr;
+        gap: .65rem .5rem;
+        padding: .75rem .75rem .85rem;
+        background: color-mix(in srgb, var(--bg-elev) 55%, transparent);
+        border-top: 1px solid var(--line);
+    }
+
+    /* the field: taller, softer, clearly the primary control */
+    .cc-input>input {
+        grid-row: 1;
+        grid-column: 1 / -1;
+        height: 48px;
+        padding: 0 1.05rem;
+        font-size: 16px;
+        line-height: 48px;
+        border-radius: 24px;
+        background: var(--glass-bg);
+        border: 1px solid var(--line-strong);
+    }
+
+    .cc-input>input:focus {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 7%, var(--glass-bg));
+    }
+
+    /* toolbar icons sit as a tight group, not scattered circles */
+    .cc-input>button:not([type="submit"]) {
+        grid-row: 2;
+        width: 44px;
+        height: 44px;
+        border: none;
+        background: transparent;
+        color: var(--text-dim);
+    }
+
+    .cc-input>button:not([type="submit"]):hover,
+    .cc-input>button:not([type="submit"]):active {
+        background: var(--glass-bg);
+        color: var(--text);
+    }
+
+    .cc-input>button:not([type="submit"]) svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    /* send: still the accent, but lighter than a full white disc */
+    .cc-input>button[type="submit"] {
+        grid-row: 2;
+        justify-self: end;
+        width: 46px;
+        height: 46px;
+        box-shadow: 0 6px 18px -10px var(--accent-glow, rgba(0, 0, 0, .4));
+    }
+
+    .cc-input>button[type="submit"] svg {
+        width: 19px;
+        height: 19px;
+    }
+}
+
+@media (max-width: 340px) {
+    .cc-input {
+        gap: .55rem .3rem;
+        padding: .65rem .6rem .7rem;
+    }
+
+    .cc-input>input {
+        padding: 0 .8rem;
+    }
+
+    .cc-input>button:not([type="submit"]) {
+        width: 42px;
+        height: 42px;
+    }
+}
+
+/* V22a — Send becomes a labelled pill so the toolbar row reads as intentional
+   instead of three icons stranded beside a floating disc. */
+@media (max-width: 620px) {
+    .cc-input>button[type="submit"] {
+        width: auto;
+        min-width: 0;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: 0 1.05rem 0 .95rem;
+        border-radius: 999px;
+        font-family: var(--font-body);
+        font-size: .85rem;
+        font-weight: 600;
+        letter-spacing: -.01em;
+    }
+
+    .cc-input>button[type="submit"]::after {
+        content: 'Send';
+    }
+
+    .cc-input>button[type="submit"] svg {
+        width: 17px;
+        height: 17px;
+    }
+}
+
+/* ==========================================================================
+   V23 — loader restored to its original treatment + a true colour loading bar
+   ========================================================================== */
+
+/* the original name treatment (rule + tracking + gradient flow) is back */
+.loader-rule {
+    display: block !important;
+    width: 42px;
+    height: 1px;
+    margin: 0 auto .1rem;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.loader-name-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .35rem;
+    margin-top: .35rem;
+}
+
+/* the loading bar: colour, visible fill, and motion that survives Reduce Motion */
+.loader-line {
+    width: min(240px, 56vw);
+    height: 3px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--text) 14%, transparent);
+    overflow: hidden;
+}
+
+.loader-line span {
+    background: linear-gradient(90deg, var(--grad-a), var(--accent), var(--grad-b));
+    box-shadow: 0 0 12px -2px var(--accent-glow, transparent);
+}
+
+.loader-line i {
+    background: linear-gradient(90deg, transparent,
+            color-mix(in srgb, #fff 70%, transparent), transparent);
+    animation: loader-sweep 1.05s linear infinite !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    /* progress feedback is information, not decoration — keep it moving */
+    .loader-line i {
+        animation: loader-sweep 1.4s linear infinite !important;
+        opacity: 1;
+    }
+
+    .loader-line span {
+        transition: transform .2s linear !important;
+    }
+
+    .ambient-canvas {
+        display: block;
+    }
+}
+
+/* ==========================================================================
+   V23b — community chat message spacing, rebuilt
+   ========================================================================== */
+@media (max-width: 620px) {
+    .cc-msgs {
+        padding: 1rem .85rem 1.15rem;
+        gap: 1.35rem;
+    }
+
+    .cc-msg {
+        gap: .65rem;
+    }
+
+    .cc-msg+.cc-msg {
+        margin-top: .15rem;
+    }
+
+    .cc-meta {
+        margin-bottom: .4rem;
+    }
+
+    .cc-body p {
+        padding: .7rem .95rem;
+        line-height: 1.6;
+    }
+
+    .cc-bubble-row {
+        gap: .5rem;
+    }
+
+    .cc-msg-actions {
+        margin-top: .35rem;
+        gap: .25rem;
+    }
+
+    .cc-msg.sys {
+        margin-block: .35rem;
+    }
+
+    .cc-msg.sys p {
+        padding: .5rem .9rem;
+    }
+
+    .cc-reacts {
+        margin-top: .45rem;
+    }
+}
