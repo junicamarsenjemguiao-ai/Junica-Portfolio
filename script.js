@@ -1464,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cvDataReq) return cvDataReq;
         cvDataReq = new Promise((resolve, reject) => {
             const sc = document.createElement('script');
-            sc.src = 'cv-data.js?v=16';
+            sc.src = 'cv-data.js?v=17';
             sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
             sc.onerror = () => reject(new Error('missing'));
             document.head.appendChild(sc);
@@ -2011,17 +2011,25 @@ document.addEventListener('DOMContentLoaded', () => {
         set(0);
         const tick = () => {
             if (done) return;
-            p += Math.max(0.006, (0.9 - p) * 0.045);
+            p += Math.max(0.0022, (0.9 - p) * 0.016);   // slow, deliberate fill
             if (p > 0.9) p = 0.9;
             set(p);
             requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
-        const finish = () => { done = true; set(1); };
+        // Always let the bar be seen filling, even when the page is already cached.
+        const t0 = performance.now();
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            const wait = Math.max(0, 1250 - (performance.now() - t0));
+            setTimeout(() => { done = true; set(1); }, wait);
+        };
         window.addEventListener('load', finish);
-        setTimeout(finish, 2400);
+        setTimeout(finish, 3600);
     })();
-    window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 950));
+    window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 1750));
     setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, 2600); // safety
 
     /* Land on the hero on every fresh visit — browsers otherwise restore the
@@ -2033,8 +2041,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('load', () => { toTop(); setTimeout(toTop, 60); });
     })();
 
-    document.documentElement.setAttribute('data-build', '16');
-    console.log('%cportfolio build 16', 'font-weight:600');
+    document.documentElement.setAttribute('data-build', '17');
+    console.log('%cportfolio build 17', 'font-weight:600');
 
     /* ===================== SCROLL PROGRESS ===================== */
     const progress = $('#scrollProgress');
