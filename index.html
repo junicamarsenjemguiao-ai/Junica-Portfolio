@@ -8,6 +8,8 @@
         // so reloading in Light Mode never flashes the dark background, and vice-versa.
         (function () {
             try {
+                // Stop the browser restoring a mid-page scroll position on reload
+                if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
                 var t = null;
                 var raw = localStorage.getItem('jmj_theme');
                 if (raw) { try { t = JSON.parse(raw); } catch (e) { t = raw; } }
@@ -54,7 +56,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=15">
 </head>
 
 <body>
@@ -79,7 +81,7 @@
             <div class="loader-name-wrap">
                 <div class="loader-name">Junica Marsen Jem</div>
             </div>
-            <div class="loader-line" aria-hidden="true"><span></span></div>
+            <div class="loader-line" aria-hidden="true"><span></span><i></i></div>
         </div>
     </div>
 
@@ -1295,7 +1297,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=15"></script>
 </body>
 
 </html>
