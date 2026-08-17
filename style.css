@@ -10683,3 +10683,273 @@ input,
         margin-top: .45rem;
     }
 }
+
+/* ==========================================================================
+   V24 — mobile chat message layout, corrected against the rendered result
+   ========================================================================== */
+@media (max-width: 620px) {
+
+    /* Bubbles hug their text instead of stretching the full column */
+    .cc-body p {
+        display: block;
+        width: fit-content;
+        max-width: 86%;
+        text-align: left;
+        /* ragged-left wrapping was the flaw */
+        padding: .7rem .95rem;
+        line-height: 1.55;
+    }
+
+    .cc-msg.me .cc-body p {
+        margin-left: auto;
+    }
+
+    .cc-msg:not(.me) .cc-body p {
+        margin-right: auto;
+    }
+
+    /* Meta gets two clean lines rather than one truncated one */
+    .cc-meta {
+        flex-wrap: wrap;
+        row-gap: .15rem;
+        margin-bottom: .45rem;
+    }
+
+    .cc-meta b {
+        flex: 0 0 auto;
+    }
+
+    .cc-meta>span {
+        flex: 1 0 100%;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        font-size: .63rem;
+        line-height: 1.35;
+    }
+
+    .cc-msg.me .cc-meta {
+        justify-content: flex-end;
+        text-align: right;
+    }
+
+    .cc-msg:not(.me) .cc-meta {
+        justify-content: flex-start;
+    }
+
+    /* Actions sit under the bubble on the same side as the message */
+    .cc-msg.me .cc-msg-actions {
+        justify-content: flex-end;
+    }
+
+    .cc-msg:not(.me) .cc-msg-actions {
+        justify-content: flex-start;
+    }
+
+    .cc-msg-actions {
+        margin-top: .3rem;
+    }
+
+    /* Tightened now that the meta occupies two lines */
+    .cc-msgs {
+        gap: 1.05rem;
+        padding: .95rem .85rem 1.1rem;
+    }
+
+    .cc-bubble-row {
+        gap: .35rem;
+    }
+
+    .cc-reacts {
+        margin-top: .35rem;
+    }
+
+    .cc-msg.me .cc-reacts {
+        justify-content: flex-end;
+    }
+}
+
+/* V24a — messages were shrink-to-fit, wasting a third of the column */
+@media (max-width: 620px) {
+    .cc-msg {
+        width: 100%;
+    }
+
+    .cc-body {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 44px);
+    }
+
+    .cc-bubble-row {
+        width: 100%;
+    }
+
+    .cc-body p {
+        max-width: 90%;
+    }
+
+    .cc-msg.me .cc-msg-actions {
+        align-self: flex-end;
+        margin-right: 0;
+    }
+
+    .cc-msg:not(.me) .cc-msg-actions {
+        align-self: flex-start;
+        margin-left: 0;
+    }
+}
+
+/* V24b — force full-width message rows (a parent align rule was shrinking them) */
+@media (max-width: 620px) {
+    .cc-msgs {
+        align-items: stretch;
+    }
+
+    .cc-msgs .cc-msg {
+        width: 100%;
+        max-width: 100%;
+        align-self: stretch;
+    }
+}
+
+/* ==========================================================================
+   V25 — ROOT CAUSE: the chat column was only 274px of a 390px screen because
+   the modal's inner padding inset it ~33px per side. Reclaim that width.
+   ========================================================================== */
+@media (max-width: 620px) {
+    .community-modal {
+        padding-left: .7rem;
+        padding-right: .7rem;
+    }
+
+    .community-modal .modal-body,
+    .community-modal>.modal-inner {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .community-grid {
+        gap: .75rem;
+        width: 100%;
+    }
+
+    .community-chat {
+        width: 100%;
+    }
+
+    .cc-msgs {
+        padding-left: .6rem;
+        padding-right: .6rem;
+    }
+
+    .cc-body p {
+        max-width: 92%;
+    }
+}
+
+/* ==========================================================================
+   V26 — slow monochrome loading bar + profile aligned to the title
+   ========================================================================== */
+
+/* The bar shifts black→white (dark mode) / white→black (light) as it fills */
+.loader-line span {
+    background: linear-gradient(90deg, var(--bg), var(--text), var(--bg), var(--text));
+    background-size: 300% 100%;
+    animation: loader-tone 6s linear infinite !important;
+    box-shadow: none;
+    transition: transform .45s cubic-bezier(.4, 0, .2, 1);
+}
+
+@keyframes loader-tone {
+    to {
+        background-position: -300% 0;
+    }
+}
+
+.loader-line i {
+    animation: loader-sweep 2.4s linear infinite !important;
+    opacity: .55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loader-line span {
+        animation: loader-tone 6s linear infinite !important;
+    }
+
+    .loader-line i {
+        animation: loader-sweep 2.8s linear infinite !important;
+    }
+}
+
+/* Profile photo lines up with the top of "Junica Marsen Jem Guiao" instead of
+   floating centred against the whole text column. */
+@media (min-width: 981px) {
+    .hero-inner {
+        align-items: start;
+    }
+
+    .avatar-wrap {
+        margin-top: 61px;
+    }
+}
+
+/* ==========================================================================
+   V27 — ambient visible without disturbing the page background
+   <html> keeps the theme colour (no flash, no layout shift); body goes
+   transparent only while an effect is running so the z-index:-1 canvas shows.
+   ========================================================================== */
+html[data-ambient]:not([data-ambient="off"]) body {
+    background-color: transparent;
+}
+
+/* ==========================================================================
+   V28 — quest toasts were landing centre-screen over the hero title and
+   colliding with the FAB column. Dock them clear of both.
+   ========================================================================== */
+.ach-toast-wrap {
+    left: var(--space-3);
+    right: auto;
+    transform: none;
+    bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    align-items: flex-start;
+    max-width: min(360px, calc(100vw - 6.5rem));
+    /* keeps clear of the FABs */
+    pointer-events: none;
+}
+
+.ach-toast-wrap .ach-toast {
+    pointer-events: auto;
+}
+
+@media (max-width: 620px) {
+    .ach-toast-wrap {
+        left: .7rem;
+        bottom: calc(.7rem + env(safe-area-inset-bottom, 0px));
+        max-width: calc(100vw - 6rem);
+    }
+}
+
+/* Toasts float above content, so they must read as a solid surface rather than
+   letting the heading bleed through them. */
+.ach-toast {
+    background: var(--bg-elev);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .55), 0 2px 8px -4px rgba(0, 0, 0, .25);
+}
+
+/* ==========================================================================
+   V27 — ambient stays a background layer (it was painting over hero text)
+   ========================================================================== */
+.ambient-canvas {
+    z-index: 0;
+}
+
+/* Page content sits explicitly above the ambient layer. Nav, modals, FABs and
+   the chatbot keep their own higher z-index values and are unaffected. */
+main,
+footer,
+.site-footer {
+    position: relative;
+    z-index: 1;
+}

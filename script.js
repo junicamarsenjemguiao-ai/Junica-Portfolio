@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* ===================== THEME PRESETS ===================== */
     const PRESETS = [
-        { id: 'mono', em: '\u25D0', name: 'Minimal Mono', sw: 'linear-gradient(120deg,#0B0B0C 50%,#F6F5F2 50%)' },
+        { id: 'mono', em: '\u25D0', name: 'Minimal Mono', sw: 'linear-gradient(120deg,#0B0B0C 50%,#F6F5F2 50%)' },   // Mono stays perfectly still
         {
             id: 'barbie', em: '\u{1F380}', name: 'Barbie', h: 325, s: 88, l: 62, ink: '#fff', mode: 'light', ambient: 'ribbon',
             gradA: 'hsl(325 95% 70%)', gradB: 'hsl(300 80% 60%)',
@@ -235,49 +235,49 @@ document.addEventListener('DOMContentLoaded', () => {
             bg: { dark: { bg: '#0B0F22', elev: '#131A33', elev2: '#1A2240' }, light: { bg: '#F5F7FE', elev: '#EAEEFB', elev2: '#DEE5F7' } }
         },
         {
-            id: 'cyberpunk', em: '\u26A1', name: 'Cyberpunk', h: 184, s: 95, l: 55, ink: '#04141A', mode: 'dark',
+            id: 'cyberpunk', em: '\u26A1', name: 'Cyberpunk', h: 184, s: 95, l: 55, ink: '#04141A', mode: 'dark', ambient: 'code',
             gradA: 'hsl(184 95% 58%)', gradB: 'hsl(315 95% 62%)',
             sw: 'linear-gradient(120deg,#12E6E6,#F03CC3)',
             bg: { dark: { bg: '#05070F', elev: '#0B1020', elev2: '#111830' }, light: { bg: '#F2F7F8', elev: '#E5EFF1', elev2: '#D7E7EA' } }
         },
         {
-            id: 'aurora', em: '\u{1F30C}', name: 'Aurora', h: 162, s: 72, l: 55, ink: '#06231A',
+            id: 'aurora', em: '\u{1F30C}', name: 'Aurora', h: 162, s: 72, l: 55, ink: '#06231A', ambient: 'sparkles',
             gradA: 'hsl(162 80% 58%)', gradB: 'hsl(255 80% 68%)',
             sw: 'linear-gradient(120deg,#33D6A6,#8A7BFF)',
             bg: { dark: { bg: '#06110F', elev: '#0C1B18', elev2: '#122521' }, light: { bg: '#F2FAF7', elev: '#E4F3EC', elev2: '#D5EBE1' } }
         },
         {
-            id: 'galaxy', em: '\u2728', name: 'Galaxy', h: 262, s: 85, l: 68, ink: '#fff', mode: 'dark',
+            id: 'galaxy', em: '\u2728', name: 'Galaxy', h: 262, s: 85, l: 68, ink: '#fff', mode: 'dark', ambient: 'sparkles',
             gradA: 'hsl(230 85% 68%)', gradB: 'hsl(300 80% 68%)',
             sw: 'linear-gradient(120deg,#5C6CFF,#C45CFF)',
             bg: { dark: { bg: '#0A0716', elev: '#130E26', elev2: '#1B1535' }, light: { bg: '#F6F4FC', elev: '#ECE8F8', elev2: '#E0DAF2' } }
         },
         {
-            id: 'ocean', em: '\u{1F30A}', name: 'Ocean Breeze', h: 199, s: 88, l: 55, ink: '#04202B', mode: 'light',
+            id: 'ocean', em: '\u{1F30A}', name: 'Ocean Breeze', h: 199, s: 88, l: 55, ink: '#04202B', mode: 'light', ambient: 'bubbles',
             gradA: 'hsl(185 85% 55%)', gradB: 'hsl(215 90% 58%)',
             sw: 'linear-gradient(120deg,#23C3E0,#2E7DF0)',
             bg: { dark: { bg: '#051019', elev: '#0A1A27', elev2: '#102434' }, light: { bg: '#F0F8FB', elev: '#E1F0F6', elev2: '#D1E7F0' } }
         },
         {
-            id: 'sakura', em: '\u{1F338}', name: 'Sakura Blossom', h: 340, s: 72, l: 66, ink: '#3A0F1F', mode: 'light',
+            id: 'sakura', em: '\u{1F338}', name: 'Sakura Blossom', h: 340, s: 72, l: 66, ink: '#3A0F1F', mode: 'light', ambient: 'petals',
             gradA: 'hsl(340 85% 74%)', gradB: 'hsl(20 85% 70%)',
             sw: 'linear-gradient(120deg,#F591B2,#F5A98D)',
             bg: { dark: { bg: '#170D11', elev: '#22151B', elev2: '#2C1B23' }, light: { bg: '#FDF4F6', elev: '#F9E7EC', elev2: '#F4D9E1' } }
         },
         {
-            id: 'golden', em: '\u{1F31F}', name: 'Golden Hour', h: 36, s: 92, l: 55, ink: '#241300',
+            id: 'golden', em: '\u{1F31F}', name: 'Golden Hour', h: 36, s: 92, l: 55, ink: '#241300', ambient: 'sparkles',
             gradA: 'hsl(36 95% 58%)', gradB: 'hsl(350 80% 62%)',
             sw: 'linear-gradient(120deg,#F2A93B,#E9556D)',
             bg: { dark: { bg: '#140E05', elev: '#1F160A', elev2: '#291E0F' }, light: { bg: '#FBF5EB', elev: '#F5EAD7', elev2: '#EFDFC4' } }
         },
         {
-            id: 'amoled', em: '\u{1F311}', name: 'AMOLED Black', h: 210, s: 100, l: 62, ink: '#fff', mode: 'dark',
+            id: 'amoled', em: '\u{1F311}', name: 'AMOLED Black', h: 210, s: 100, l: 62, ink: '#fff', mode: 'dark', ambient: 'code',
             gradA: 'hsl(210 100% 66%)', gradB: 'hsl(190 90% 58%)',
             sw: 'linear-gradient(120deg,#000 55%,#2E90FF)',
             bg: { dark: { bg: '#000000', elev: '#0C0C0E', elev2: '#141416' }, light: { bg: '#F6F6F6', elev: '#ECECEC', elev2: '#E0E0E0' } }
         },
         { // Secret prize theme — unlocked by finishing Explorer Quest
-            id: 'legendgold', em: '\u2726', name: 'Legend Gold ✦', secret: true, h: 44, s: 90, l: 56, ink: '#241300',
+            id: 'legendgold', em: '\u2726', name: 'Legend Gold ✦', secret: true, h: 44, s: 90, l: 56, ink: '#241300', ambient: 'sparkles',
             gradA: 'hsl(48 95% 62%)', gradB: 'hsl(30 90% 50%)',
             sw: 'linear-gradient(120deg,#F3C13B,#E58A2F)',
             bg: { dark: { bg: '#120D03', elev: '#1D1508', elev2: '#271D0D' }, light: { bg: '#FCF6E8', elev: '#F7EDD3', elev2: '#F1E3BE' } }
@@ -307,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         accent: store.get('accent2', null),   // null = use preset accent
         accentHex: store.get('accentHex', null), // custom HEX overrides both
         grad: store.get('grad2', null),       // null = use preset gradient
-        ambient: store.get('ambient', 'off'),
+        ambient: store.get('ambient', 'auto'),
         grid: store.get('grid', 'off'),
         gridSize: store.get('gridSize', 64),
         gridAlpha: store.get('gridAlpha', 0.7),
@@ -320,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         voiceLang: store.get('voiceLang', 'en-US'),
     };
     // Default mode follows the time of day (06:00–17:59 light, otherwise dark)
+    if (state.ambient !== 'off' && state.ambient !== 'auto') { state.ambient = 'auto'; store.set('ambient', 'auto'); }
     if (state.preset !== 'custom' && !PRESETS.some(p => p.id === state.preset)) { state.preset = 'mono'; store.set('preset', 'mono'); }
     if (!state.theme) { const hh = new Date().getHours(); state.theme = (hh >= 6 && hh < 18) ? 'light' : 'dark'; }
 
@@ -429,6 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const bg = (getComputedStyle(html).getPropertyValue('--bg') || '').trim();
             if (!bg) return;
             html.style.setProperty('--boot-bg', bg);
+            // <html> keeps the colour (prevents theme flash). Body is made transparent
+            // by CSS while an ambient effect is active so the canvas can show through.
             html.style.backgroundColor = bg;
             const mt = document.querySelector('meta[name="theme-color"]');
             if (mt) mt.setAttribute('content', bg);
@@ -521,8 +524,13 @@ document.addEventListener('DOMContentLoaded', () => {
         state.preset = p.id; state.accent = null; state.grad = null; state.accentHex = null;
         store.set('preset', p.id); store.set('accent2', null); store.set('grad2', null); store.set('accentHex', null);
         if (p.mode) { state.theme = p.mode; store.set('theme', p.mode); }
-        if (p.ambient) { state.ambient = p.ambient; store.set('ambient', state.ambient); }
-        applyTheme(); applyAccent(); applyGradient(); applyAmbient(); updateAvatarMode();
+        if (p.ambient) {
+            // Stay on 'auto' so the effect keeps following the theme; only pin a
+            // specific effect if the visitor has chosen one manually.
+            if (state.ambient === 'auto' || !state.ambient) { state.ambient = 'auto'; store.set('ambient', 'auto'); }
+            store.set('ambientOptIn', true);
+        }
+        applyTheme(); applyAccent(); applyGradient(); applyAmbient(); renderAmbientOptions(); updateAvatarMode();
         sfx('switch'); unlock('theme');
     }
     PRESETS.forEach(p => { if (!p.secret || giftClaimed) addPresetBtn(p); });
@@ -606,10 +614,26 @@ document.addEventListener('DOMContentLoaded', () => {
         state.theme = state.theme === 'dark' ? 'light' : 'dark';
         store.set('theme', state.theme); applyTheme(); updateAvatarMode(); sfx('switch'); unlock('theme');
     });
-    $$('[data-ambient]').forEach(b => b.addEventListener('click', () => {
+    // The ambient row only ever offers this theme's own effect — no cross-theme
+    // options (Mono never shows Webs, Barbie never shows Code, and so on).
+    const AMBIENT_NAMES = { sparkles: 'Sparkles', code: 'Code rain', bubbles: 'Bubbles', web: 'Webs', ribbon: 'Ribbons', petals: 'Petals' };
+    function renderAmbientOptions() {
+        const seg = $('#ambientSeg');
+        if (!seg) return;
+        const p = PRESETS.find(x => x.id === state.preset);
+        const eff = (p && p.ambient) || 'off';
+        seg.innerHTML = eff === 'off'
+            ? `<button data-ambient="off">Off</button>`
+            : `<button data-ambient="auto">${AMBIENT_NAMES[eff] || 'Theme effect'}</button><button data-ambient="off">Off</button>`;
+        syncAmbientButtons();
+    }
+    $('#ambientSeg')?.addEventListener('click', e => {
+        const b = e.target.closest('[data-ambient]');
+        if (!b) return;
         if (b.dataset.ambient !== 'off') store.set('ambientOptIn', true);
-        state.ambient = b.dataset.ambient; store.set('ambient', state.ambient); applyAmbient(); sfx('click');
-    }));
+        state.ambient = b.dataset.ambient; store.set('ambient', state.ambient);
+        applyAmbient(); syncAmbientButtons(); sfx('click');
+    });
     $$('[data-grid-choice]').forEach(b => b.addEventListener('click', () => {
         state.grid = b.dataset.gridChoice; store.set('grid', state.grid); applyGrid(); sfx('switch');
     }));
@@ -624,6 +648,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.sound) { ensureCtx(); sfx('switch'); }
     }));
 
+    // 'auto' means: use whatever effect the active theme defines.
+    function resolvedAmbient() {
+        if (state.ambient !== 'auto') return state.ambient;
+        const p = PRESETS.find(x => x.id === state.preset);
+        return (p && p.ambient) || 'off';
+    }
     function syncAmbientButtons() { $$('[data-ambient]').forEach(b => b.classList.toggle('active', b.dataset.ambient === state.ambient)); }
 
     /* Panels open/close */
@@ -671,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial paint
     if (state.accentHex) applyAccentHex(state.accentHex, false);
-    applyTheme(); applyAccent(); applyGradient(); applyGrid(); applySound(); syncAmbientButtons();
+    applyTheme(); applyAccent(); applyGradient(); applyGrid(); applySound(); renderAmbientOptions(); syncAmbientButtons();
     applyFont(); applySize(); applyDesktop();
 
     /* ===================== RENDER: SKILLS / TOOLS / HONORS ===================== */
@@ -1464,7 +1494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cvDataReq) return cvDataReq;
         cvDataReq = new Promise((resolve, reject) => {
             const sc = document.createElement('script');
-            sc.src = 'cv-data.js?v=17';
+            sc.src = 'cv-data.js?v=23';
             sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
             sc.onerror = () => reject(new Error('missing'));
             document.head.appendChild(sc);
@@ -2041,8 +2071,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('load', () => { toTop(); setTimeout(toTop, 60); });
     })();
 
-    document.documentElement.setAttribute('data-build', '17');
-    console.log('%cportfolio build 17', 'font-weight:600');
+    document.documentElement.setAttribute('data-build', '23');
+    console.log('%cportfolio build 23', 'font-weight:600');
 
     /* ===================== SCROLL PROGRESS ===================== */
     const progress = $('#scrollProgress');
@@ -2195,8 +2225,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const n = window.innerWidth < 640 ? 16 : 30;
         particles = Array.from({ length: n }, () => ({
             x: Math.random() * W, y: Math.random() * H,
-            vx: (Math.random() - 0.5) * (state.ambient === 'web' ? 0.35 : 0.3),
-            vy: state.ambient === 'web' ? (Math.random() - 0.5) * 0.35 : -(0.15 + Math.random() * 0.4),
+            vx: (Math.random() - 0.5) * (resolvedAmbient() === 'web' ? 0.35 : 0.3),
+            vy: resolvedAmbient() === 'petals' ? (0.22 + Math.random() * 0.45)
+                : resolvedAmbient() === 'web' ? (Math.random() - 0.5) * 0.35 : -(0.15 + Math.random() * 0.4),
             ph: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.02, rot: Math.random() * Math.PI,
             r: 1 + Math.random() * 2.5, o: 0.12 + Math.random() * 0.42,
             sym: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)], sz: 10 + Math.random() * 8
@@ -2206,7 +2237,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawAmbient() {
         ctx2d.clearRect(0, 0, W, H);
         ambT += 0.008;
-        if (state.ambient === 'ribbon') {
+        if (resolvedAmbient() === 'ribbon') {
             // Barbie — elegant ribbon bows drifting like confetti, drawn as clean bezier loops
             ctx2d.lineWidth = 1.6; ctx2d.strokeStyle = accentCss; ctx2d.fillStyle = accentCss;
             particles.forEach(p => {
@@ -2229,7 +2260,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx2d.stroke();
                 ctx2d.restore();
             });
-        } else if (state.ambient === 'web') {
+        } else if (resolvedAmbient() === 'petals') {
+            // Sakura — cherry blossom petals tumbling down with a soft sway
+            ctx2d.fillStyle = accentCss; ctx2d.strokeStyle = accentCss;
+            particles.forEach(p => {
+                p.y += p.vy;
+                p.x += Math.sin(ambT * 1.6 + p.ph) * 0.55 + p.vx * 0.3;
+                p.rot = (p.rot || 0) + p.vr * 1.6;
+                if (p.y > H + 24) { p.y = -24; p.x = Math.random() * W; }
+                if (p.x < -24) p.x = W + 24; if (p.x > W + 24) p.x = -24;
+                const sc = p.sz / 14;
+                const flut = 0.55 + 0.45 * Math.sin(ambT * 2.2 + p.ph);
+                ctx2d.save();
+                ctx2d.translate(p.x, p.y);
+                ctx2d.rotate(p.rot + Math.sin(ambT + p.ph) * 0.4);
+                ctx2d.scale(flut, 1);
+                ctx2d.globalAlpha = 0.18 + p.o * 0.55;
+                const pw = 5.2 * sc, ph2 = 8.6 * sc;
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, ph2 * 0.5);
+                ctx2d.bezierCurveTo(pw, ph2 * 0.15, pw * 0.85, -ph2 * 0.55, 0, -ph2 * 0.5);
+                ctx2d.bezierCurveTo(-pw * 0.85, -ph2 * 0.55, -pw, ph2 * 0.15, 0, ph2 * 0.5);
+                ctx2d.fill();
+                ctx2d.globalAlpha = (0.18 + p.o * 0.55) * 0.45;
+                ctx2d.lineWidth = 0.8;
+                ctx2d.beginPath();
+                ctx2d.moveTo(0, -ph2 * 0.45); ctx2d.quadraticCurveTo(0, -ph2 * 0.1, 0, ph2 * 0.15);
+                ctx2d.stroke();
+                ctx2d.restore();
+            });
+        } else if (resolvedAmbient() === 'web') {
             // Spider-Man — a single refined spiderweb anchored top-right, gently breathing
             const ax = W - 8, ay = 8;               // anchor corner
             const R = Math.min(W, H) * (0.9 + 0.02 * Math.sin(ambT * 1.5));
@@ -2270,10 +2330,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (p.y < -20) { p.y = H + 20; p.x = Math.random() * W; }
                 if (p.y > H + 20) { p.y = -20; p.x = Math.random() * W; }
                 if (p.x < -20) p.x = W + 20; if (p.x > W + 20) p.x = -20;
-                if (state.ambient === 'code') {
+                if (resolvedAmbient() === 'code') {
                     ctx2d.globalAlpha = p.o * (0.35 + 0.3 * Math.sin(ambT * 3 + p.ph));
                     ctx2d.font = `${p.sz}px monospace`; ctx2d.fillText(p.sym, p.x, p.y);
-                } else if (state.ambient === 'bubbles') {
+                } else if (resolvedAmbient() === 'bubbles') {
                     const wob = Math.sin(ambT * 2.4 + p.ph) * 2;
                     ctx2d.globalAlpha = p.o * 0.5;
                     ctx2d.lineWidth = 1;
@@ -2299,15 +2359,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function applyAmbient() {
         syncAmbientButtons();
+        html.setAttribute('data-ambient', resolvedAmbient() || 'off');
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         ctx2d && ctx2d.clearRect(0, 0, W, H);
         // Reduce Motion suppresses ambient by default, but if someone deliberately
         // picks an effect in Edit Preferences we honour that choice.
-        if (state.ambient === 'off') return;
+        if (resolvedAmbient() === 'off') return;
         if (reduceMotion && !store.get('ambientOptIn', false)) return;
         resizeCanvas(); refreshAccentCss(); initParticles(); drawAmbient();
     }
-    window.addEventListener('resize', () => { resizeCanvas(); onScroll(); updateTimeline(); if (state.ambient !== 'off' && !reduceMotion) initParticles(); });
+    window.addEventListener('resize', () => { resizeCanvas(); onScroll(); updateTimeline(); if (resolvedAmbient() !== 'off' && !reduceMotion) initParticles(); });
     applyAmbient();
 
     /* ===================== SCROLL LOOP ===================== */
