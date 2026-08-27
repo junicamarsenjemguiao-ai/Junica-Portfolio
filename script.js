@@ -2513,17 +2513,51 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
       }
       if (obj.op === 'delete') {
-        await supa.from('cc_messages').delete().eq('mid', obj.mid);
+        const { error } = await supa
+          .from('cc_messages')
+          .delete()
+          .eq('mid', obj.mid);
+
+        if (error) {
+          console.error('[community] Supabase delete failed:', error);
+          return false;
+        }
         return true;
       }
+
       if (obj.op === 'edit' || obj.op === 'react') {
-        const m = ccFindMsg(obj.mid);            // already mutated locally by ccApplyOp
-        if (m) await supa.from('cc_messages').update({ data: m }).eq('mid', obj.mid);
+        const m = ccFindMsg(obj.mid);
+
+        if (m) {
+          const { error } = await supa
+            .from('cc_messages')
+            .update({ data: m })
+            .eq('mid', obj.mid);
+
+          if (error) {
+            console.error('[community] Supabase update failed:', error);
+            return false;
+          }
+        }
         return true;
       }
+
       if (obj.mid) {
-        await supa.from('cc_messages')
-          .insert({ mid: obj.mid, sid: obj.sid, ts: obj.ts || Date.now(), data: obj });
+        const { error } = await supa
+          .from('cc_messages')
+          .insert({
+            mid: obj.mid,
+            sid: obj.sid,
+            ts: obj.ts || Date.now(),
+            data: obj
+          });
+
+        if (error) {
+          console.error('[community] Supabase message insert failed:', error);
+          return false;
+        }
+
+        console.log('[community] Message saved to Supabase:', obj.mid);
         return true;
       }
     } catch (e) { console.warn('[community] send failed', e); }
