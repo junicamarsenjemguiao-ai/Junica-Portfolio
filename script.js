@@ -2578,11 +2578,30 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Cross-device relay: broadcasts every message to all connected visitors.
      Wraps the same message shapes used by BroadcastChannel so both paths share code. */
   let ccWs = null, ccWsReady = false, ccWsRetry = 0, ccWsTimer = null;
+  let ccSupaInitPromise = null;
+
   function ccRelaySend(obj) {
-    if (supa) {
-      ccSupaSend(obj).catch(err => {
-        console.error('[community] Supabase send error:', err);
+    if (ccSupaEnabled()) {
+      if (supa) {
+        ccSupaSend(obj).catch(err => {
+          console.error('[community] Supabase send error:', err);
+        });
+        return;
+      }
+
+      if (!ccSupaInitPromise) {
+        ccSupaInitPromise = ccSupaInit();
+      }
+
+      ccSupaInitPromise.then(() => {
+        if (supa) {
+          return ccSupaSend(obj);
+        }
+        return false;
+      }).catch(err => {
+        console.error('[community] Supabase initialization/send error:', err);
       });
+
       return;
     }
 
