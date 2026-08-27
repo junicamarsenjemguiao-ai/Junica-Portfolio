@@ -2477,9 +2477,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (payload && payload.id !== ccId) ccHandleRemote(payload);
       })
       .subscribe(st => {
+        console.log('[community] Supabase realtime status:', st);
+
         supaReady = (st === 'SUBSCRIBED');
-        if (supaReady && ccMe && ccMe.name) {
-          ccRelaySend({ type: 'hello', id: ccId, name: ccMe.name, geo: ccMe.geo });
+
+        if (st === 'SUBSCRIBED') {
+          console.log('%c[community] Realtime connected', 'font-weight:600');
+
+          if (ccMe && ccMe.name) {
+            ccRelaySend({
+              type: 'hello',
+              id: ccId,
+              name: ccMe.name,
+              geo: ccMe.geo
+            });
+          }
+        } else if (st === 'CHANNEL_ERROR') {
+          console.error('[community] Supabase realtime channel error');
+        } else if (st === 'TIMED_OUT') {
+          console.error('[community] Supabase realtime connection timed out');
+        } else if (st === 'CLOSED') {
+          console.warn('[community] Supabase realtime channel closed');
         }
       });
     console.log('%c[community] Supabase backend active', 'font-weight:600');
