@@ -2579,9 +2579,19 @@ document.addEventListener('DOMContentLoaded', () => {
      Wraps the same message shapes used by BroadcastChannel so both paths share code. */
   let ccWs = null, ccWsReady = false, ccWsRetry = 0, ccWsTimer = null;
   function ccRelaySend(obj) {
-    if (supa) { ccSupaSend(obj); return; }   // Supabase takes over when configured
+    if (supa) {
+      ccSupaSend(obj).catch(err => {
+        console.error('[community] Supabase send error:', err);
+      });
+      return;
+    }
+
     if (ccWs && ccWsReady) {
-      try { ccWs.send(JSON.stringify({ room: CC_ROOM, ...obj })); } catch {}
+      try {
+        ccWs.send(JSON.stringify({ room: CC_ROOM, ...obj }));
+      } catch (err) {
+        console.error('[community] WebSocket send error:', err);
+      }
     }
   }
   function ccRelayConnect() {
