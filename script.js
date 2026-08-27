@@ -2459,54 +2459,72 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) { console.warn('[community] history load failed', e); }
 
-    // 2. Realtime: messages via table changes, office movement via broadcast
-    supaChan = supa.channel('cc:' + CC_ROOM, { config: { broadcast: { self: false } } })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cc_messages' }, p => {
-        const m = p.new && p.new.data;
+    // 2. Realtime: messages via database changes + office movement via broadcast
+    supaChan = supa.channel('cc:' + CC_ROOM, {
+      config: { broadcast: { self: false } }
+    });
+
+    supaChan.on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'cc_messages' },
+      payload => {
+        console.log('[community] REALTIME INSERT:', payload);
+        const m = payload.new && payload.new.data;
         if (m) ccHandleRemote(m);
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cc_messages' }, p => {
-        const m = p.new && p.new.data;
+      }
+    );
+
+    supaChan.on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'cc_messages' },
+      payload => {
+        const m = payload.new && payload.new.data;
         if (m && m.sid !== ccId) ccReplaceMsg(m);
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cc_messages' }, p => {
-        const mid = p.old && p.old.mid;
+      }
+    );
+
+    supaChan.on(
+      'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'cc_messages' },
+      payload => {
+        const mid = payload.old && payload.old.mid;
         if (mid) ccApplyOp({ op: 'delete', mid });
-      })
-      .on('broadcast', { event: 'office' }, ({ payload }) => {
+      }
+    );
+
+    supaChan.on(
+      'broadcast',
+      { event: 'office' },
+      ({ payload }) => {
         if (payload && payload.id !== ccId) ccHandleRemote(payload);
-      })
-      .on('broadcast', { event: 'message' }, ({ payload }) => {
-        if (!payload || payload.sid === ccId) return;
+      }
+    );
 
-        console.log('[community] Realtime message received:', payload.mid);
+    supaChan.subscribe(st => {
+      console.log('[community] Supabase realtime status:', st);
 
-        ccHandleRemote(payload);
-      })
-      .subscribe(st => {
-        console.log('[community] Supabase realtime status:', st);
+      supaReady = (st === 'SUBSCRIBED');
 
-        supaReady = (st === 'SUBSCRIBED');
+      if (st === 'SUBSCRIBED') {
+        console.log('%c[community] Realtime connected', 'font-weight:600');
 
-        if (st === 'SUBSCRIBED') {
-          console.log('%c[community] Realtime connected', 'font-weight:600');
-
-          if (ccMe && ccMe.name) {
-            ccRelaySend({
-              type: 'hello',
-              id: ccId,
-              name: ccMe.name,
-              geo: ccMe.geo
-            });
-          }
-        } else if (st === 'CHANNEL_ERROR') {
-          console.error('[community] Supabase realtime channel error');
-        } else if (st === 'TIMED_OUT') {
-          console.error('[community] Supabase realtime connection timed out');
-        } else if (st === 'CLOSED') {
-          console.warn('[community] Supabase realtime channel closed');
+        if (ccMe && ccMe.name) {
+          ccRelaySend({
+            type: 'hello',
+            id: ccId,
+            name: ccMe.name,
+            geo: ccMe.geo
+          });
         }
-      });
+      } else if (st === 'CHANNEL_ERROR') {
+        console.error('[community] Supabase realtime channel error');
+      } else if (st === 'TIMED_OUT') {
+        console.error('[community] Supabase realtime connection timed out');
+      } else if (st === 'CLOSED') {
+        console.warn('[community] Supabase realtime channel closed');
+      }
+    });
+
     console.log('%c[community] Supabase backend active', 'font-weight:600');
     return true;
   }
