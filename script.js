@@ -2476,6 +2476,13 @@ document.addEventListener('DOMContentLoaded', () => {
       .on('broadcast', { event: 'office' }, ({ payload }) => {
         if (payload && payload.id !== ccId) ccHandleRemote(payload);
       })
+      .on('broadcast', { event: 'message' }, ({ payload }) => {
+        if (!payload || payload.sid === ccId) return;
+
+        console.log('[community] Realtime message received:', payload.mid);
+
+        ccHandleRemote(payload);
+      })
       .subscribe(st => {
         console.log('[community] Supabase realtime status:', st);
 
@@ -2558,6 +2565,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         console.log('[community] Message saved to Supabase:', obj.mid);
+
+        // Broadcast immediately to every connected visitor.
+        // The database insert above keeps the message persistent.
+        if (supaChan && supaReady) {
+          const result = await supaChan.send({
+            type: 'broadcast',
+            event: 'message',
+            payload: obj
+          });
+
+          if (result !== 'ok') {
+            console.warn('[community] Supabase message broadcast failed:', result);
+          } else {
+            console.log('[community] Message broadcast realtime:', obj.mid);
+          }
+        } else {
+          console.warn('[community] Realtime channel not ready; message was saved only.');
+        }
+
         return true;
       }
     } catch (e) { console.warn('[community] send failed', e); }
