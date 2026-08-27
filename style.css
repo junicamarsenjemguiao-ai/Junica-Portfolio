@@ -11039,3 +11039,7 @@ footer,
 .loader-name-wrap {
     margin-top: .6rem;
 }
+/* Fix — restore pre-loading bar */
+.loader-line {
+    display: block !important;
+}
