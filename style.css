@@ -10953,3 +10953,89 @@ footer,
     position: relative;
     z-index: 1;
 }
+
+/* ==========================================================================
+   V28 — loader stripped back: JMJ, the name, one plain line. Nothing else.
+   ========================================================================== */
+.loader-rule {
+    display: none !important;
+}
+
+.loader-inner::before {
+    display: none !important;
+}
+
+/* JMJ reads exactly like the nav logo — solid ink, accent dot, no shimmer */
+.loader-jmj span {
+    background: none !important;
+    -webkit-text-fill-color: var(--text);
+    color: var(--text);
+    animation: jmj-in .5s var(--ease) forwards !important;
+}
+
+.loader-jmj i {
+    color: var(--accent);
+    animation: jmj-dot .4s var(--ease) .35s forwards !important;
+}
+
+.loader-jmj {
+    font-size: clamp(2.4rem, 8vw, 3.6rem);
+}
+
+/* Name: quiet mono caption, no blur or tracking animation */
+.loader-name {
+    filter: none !important;
+    letter-spacing: .3em;
+    text-indent: .3em;
+    font-size: clamp(.62rem, 1.8vw, .72rem);
+    animation: loader-fade .5s var(--ease) .3s forwards !important;
+}
+
+.loader-name-wrap {
+    margin-top: .55rem;
+}
+
+/* One plain progress line — no gradient cycling, no shimmer */
+.loader-line {
+    width: min(180px, 46vw);
+    height: 2px;
+    margin-top: 1.5rem;
+    background: color-mix(in srgb, var(--text) 12%, transparent);
+    border-radius: 0;
+}
+
+.loader-line span {
+    background: var(--text) !important;
+    box-shadow: none !important;
+    border-radius: 0;
+    animation: none !important;
+    transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+}
+
+.loader-line i {
+    display: none !important;
+}
+
+/* V29 — rounded (dot) ends on the loading line, same dimensions */
+.loader-line {
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.loader-line span {
+    border-radius: 999px;
+}
+
+/* V30 — a single line: no track behind the fill, just the one growing rule */
+.loader-line {
+    background: transparent !important;
+}
+
+/* V31 — pre-loading bar removed entirely; loader is the mark and the name only */
+.loader-line {
+    display: none !important;
+}
+
+.loader-name-wrap {
+    margin-top: .6rem;
+}

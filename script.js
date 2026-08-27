@@ -1494,7 +1494,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cvDataReq) return cvDataReq;
         cvDataReq = new Promise((resolve, reject) => {
             const sc = document.createElement('script');
-            sc.src = 'cv-data.js?v=23';
+            sc.src = 'cv-data.js?v=24';
             sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
             sc.onerror = () => reject(new Error('missing'));
             document.head.appendChild(sc);
@@ -2071,8 +2071,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('load', () => { toTop(); setTimeout(toTop, 60); });
     })();
 
-    document.documentElement.setAttribute('data-build', '23');
-    console.log('%cportfolio build 23', 'font-weight:600');
+    document.documentElement.setAttribute('data-build', '24');
+    console.log('%cportfolio build 24', 'font-weight:600');
 
     /* ===================== SCROLL PROGRESS ===================== */
     const progress = $('#scrollProgress');
@@ -2404,7 +2404,106 @@ document.addEventListener('DOMContentLoaded', () => {
        other move and chat live on the deployed site — no refresh needed. If the relay
        is unreachable, everything still works locally and degrades gracefully.
        To use your own backend, set CC_RELAY_URL below (search: CC_SYNC). */
-    const CC_RELAY_URL = 'wss://ws.postman-echo.com/raw'; // CC_SYNC: swap for your own room-scoped WS/Supabase relay
+    const CC_RELAY_URL = 'wss://ws.postman-echo.com/raw'; // fallback only, used when Supabase is not configured
+
+    /* ============================ SUPABASE BACKEND ============================
+       Paste your project URL + anon key here and the forum switches from
+       local-only to a real shared backend: messages persist, arrive in realtime
+       for every visitor, and office avatars move live.
+       Leave blank and everything still works locally exactly as before.        */
+    const CC_SUPABASE = {
+        url: '',   // e.g. 'https://abcdefgh.supabase.co'
+        anon: ''    // the public "anon" key (safe for the browser)
+    };
+    let supa = null, supaChan = null, supaReady = false;
+
+    function ccSupaEnabled() { return !!(CC_SUPABASE.url && CC_SUPABASE.anon); }
+
+    function ccReplaceMsg(m) {
+        if (!m || !m.mid) return;
+        const list = ccHistory();
+        const i = list.findIndex(x => x.mid === m.mid);
+        if (i >= 0) list[i] = m; else list.push(m);
+        ccSaveHistory(list);
+        if (commOpen) ccRerenderAll();
+    }
+
+    async function ccSupaInit() {
+        if (!ccSupaEnabled()) return false;
+        try {
+            const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+            supa = mod.createClient(CC_SUPABASE.url, CC_SUPABASE.anon, {
+                realtime: { params: { eventsPerSecond: 20 } }
+            });
+        } catch (e) {
+            console.warn('[community] Supabase failed to load — staying local.', e);
+            supa = null;
+            return false;
+        }
+        // 1. Backfill history from the database
+        try {
+            const { data, error } = await supa
+                .from('cc_messages').select('data').order('ts', { ascending: true }).limit(150);
+            if (!error && data && data.length) {
+                const list = data.map(r => r.data).filter(Boolean);
+                list.forEach(m => { if (m.mid) ccSeen.add(m.mid); });
+                ccSaveHistory(list);
+                if (commOpen) ccRerenderAll();
+            }
+        } catch (e) { console.warn('[community] history load failed', e); }
+
+        // 2. Realtime: messages via table changes, office movement via broadcast
+        supaChan = supa.channel('cc:' + CC_ROOM, { config: { broadcast: { self: false } } })
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cc_messages' }, p => {
+                const m = p.new && p.new.data;
+                if (m) ccHandleRemote(m);
+            })
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cc_messages' }, p => {
+                const m = p.new && p.new.data;
+                if (m && m.sid !== ccId) ccReplaceMsg(m);
+            })
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cc_messages' }, p => {
+                const mid = p.old && p.old.mid;
+                if (mid) ccApplyOp({ op: 'delete', mid });
+            })
+            .on('broadcast', { event: 'office' }, ({ payload }) => {
+                if (payload && payload.id !== ccId) ccHandleRemote(payload);
+            })
+            .subscribe(st => {
+                supaReady = (st === 'SUBSCRIBED');
+                if (supaReady && ccMe && ccMe.name) {
+                    ccRelaySend({ type: 'hello', id: ccId, name: ccMe.name, geo: ccMe.geo });
+                }
+            });
+        console.log('%c[community] Supabase backend active', 'font-weight:600');
+        return true;
+    }
+
+    async function ccSupaSend(obj) {
+        if (!supa) return false;
+        try {
+            // Office movement is ephemeral — broadcast only, never written to the DB
+            if (obj.type === 'pos' || obj.type === 'hello' || obj.type === 'bye') {
+                if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'office', payload: obj });
+                return true;
+            }
+            if (obj.op === 'delete') {
+                await supa.from('cc_messages').delete().eq('mid', obj.mid);
+                return true;
+            }
+            if (obj.op === 'edit' || obj.op === 'react') {
+                const m = ccFindMsg(obj.mid);            // already mutated locally by ccApplyOp
+                if (m) await supa.from('cc_messages').update({ data: m }).eq('mid', obj.mid);
+                return true;
+            }
+            if (obj.mid) {
+                await supa.from('cc_messages')
+                    .insert({ mid: obj.mid, sid: obj.sid, ts: obj.ts || Date.now(), data: obj });
+                return true;
+            }
+        } catch (e) { console.warn('[community] send failed', e); }
+        return false;
+    }
     const CC_ROOM = 'jmj-office-v1';
     const communityModal = $('#communityModal');
     const officeCanvas = $('#officeCanvas');
@@ -2421,11 +2520,13 @@ document.addEventListener('DOMContentLoaded', () => {
        Wraps the same message shapes used by BroadcastChannel so both paths share code. */
     let ccWs = null, ccWsReady = false, ccWsRetry = 0, ccWsTimer = null;
     function ccRelaySend(obj) {
+        if (supa) { ccSupaSend(obj); return; }   // Supabase takes over when configured
         if (ccWs && ccWsReady) {
             try { ccWs.send(JSON.stringify({ room: CC_ROOM, ...obj })); } catch { }
         }
     }
     function ccRelayConnect() {
+        if (ccSupaEnabled()) return;             // Supabase replaces the WS fallback
         if (!('WebSocket' in window) || !CC_RELAY_URL) return;
         try { ccWs = new WebSocket(CC_RELAY_URL); } catch { return; }
         ccWs.onopen = () => {
@@ -3133,7 +3234,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
         commOpen = true;
         sizeOffice(); refreshAccentCss();
-        if (!ccWs) ccRelayConnect(); // join the cross-device room
+        // Join the shared room: Supabase when configured, WS relay otherwise
+        if (ccSupaEnabled()) { if (!supa) ccSupaInit(); }
+        else if (!ccWs) ccRelayConnect();
         cancelAnimationFrame(commRaf); commRaf = requestAnimationFrame(drawOffice);
         if (ccMe && ccMe.name) ccEnter(); else { ccJoin.hidden = false; ccMsgs.hidden = true; ccForm.hidden = true; }
         // Heartbeat: keep presence fresh + prune peers who went offline
