@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Community backend check</title>
+<style>
+  body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;max-width:760px;margin:0 auto;padding:2rem 1.2rem;background:#FAFAF7;color:#15140F}
+  h1{font-size:1.3rem;margin:0 0 .3rem} p.sub{color:#6b6a63;margin:0 0 1.4rem}
+  .row{display:flex;gap:.7rem;padding:.7rem .9rem;border:1px solid #e6e5df;border-radius:10px;margin-bottom:.5rem;background:#fff;align-items:flex-start}
+  .tag{font:600 11px ui-monospace,monospace;padding:.15rem .45rem;border-radius:99px;flex:0 0 auto;margin-top:.15rem}
+  .ok{background:#e6f6ec;color:#146c3a}.bad{background:#fdeaea;color:#9b1c1c}.wait{background:#eef0f4;color:#4a5568}
+  .name{font-weight:600}.msg{color:#6b6a63;font-size:.88rem;white-space:pre-wrap}
+  pre{background:#15140F;color:#f5f5f0;padding:.9rem;border-radius:10px;overflow:auto;font-size:12.5px}
+  .fix{margin-top:.45rem}
+</style></head><body>
+<h1>Community backend check</h1>
+<p class="sub">Open this on your deployed site. Each step tests one link in the chain.</p>
+<div id="out"></div>
+<div id="fixes"></div>
+<script>
+const SUPA_URL='https://tyodziovdsjuyjeyusxk.supabase.co';
+const SUPA_KEY='sb_publishable_1ETBKIErdqGSAyUfg_IXKg_dozE6Pl3';
+const out=document.getElementById('out'), fixes=document.getElementById('fixes');
+const rows={};
+function step(id,name){const d=document.createElement('div');d.className='row';
+  d.innerHTML=`<span class="tag wait" id="t_${id}">…</span><div><div class="name">${name}</div><div class="msg" id="m_${id}">running…</div></div>`;
+  out.appendChild(d);rows[id]=d;}
+function mark(id,ok,msg){const t=document.getElementById('t_'+id);t.className='tag '+(ok?'ok':'bad');t.textContent=ok?'PASS':'FAIL';
+  document.getElementById('m_'+id).textContent=msg;}
+function fix(html){const d=document.createElement('div');d.className='fix';d.innerHTML=html;fixes.appendChild(d);}
+
+['lib','client','read','write','sub','realtime','broadcast'].forEach((id,i)=>step(id,
+  ['1. Supabase library loads','2. Client connects','3. Table readable (cc_messages)','4. Insert allowed',
+   '5. Realtime channel subscribes','6. INSERT event received (publication)','7. Broadcast works (office)'][i]));
+
+(async()=>{
+  let createClient;
+  try{ ({createClient}=await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+       mark('lib',true,'loaded from jsDelivr'); }
+  catch(e){ mark('lib',false,String(e));
+    fix('<p><b>Fix:</b> the CDN is blocked (ad-blocker, firewall, or offline). Try another network or disable blockers.</p>');
+    return; }
+
+  let supa;
+  try{ supa=createClient(SUPA_URL,SUPA_KEY); mark('client',true,'client created'); }
+  catch(e){ mark('client',false,String(e)); return; }
+
+  try{ const {error,count}=await supa.from('cc_messages').select('mid',{count:'exact',head:true});
+    if(error) throw error; mark('read',true,`table exists — ${count??0} rows`); }
+  catch(e){ mark('read',false,(e.message||String(e)));
+    fix('<p><b>Fix — the table is missing or unreadable.</b> Run this in Supabase → SQL Editor:</p><pre>create table if not exists public.cc_messages (\n  mid text primary key,\n  sid text not null,\n  ts bigint not null,\n  data jsonb not null,\n  created_at timestamptz default now()\n);\nalter table public.cc_messages enable row level security;\ncreate policy "public read"   on public.cc_messages for select using (true);\ncreate policy "public insert" on public.cc_messages for insert with check (true);\ncreate policy "public update" on public.cc_messages for update using (true) with check (true);\ncreate policy "public delete" on public.cc_messages for delete using (true);\nalter publication supabase_realtime add table public.cc_messages;</pre>'); }
+
+  const testMid='diag_'+Date.now();
+  try{ const {error}=await supa.from('cc_messages').insert({mid:testMid,sid:'diagnostic',ts:Date.now(),
+        data:{mid:testMid,sid:'diagnostic',name:'Diagnostic',ts:Date.now(),text:'backend check'}});
+    if(error) throw error; mark('write',true,'insert succeeded'); }
+  catch(e){ const m=(e.message||String(e)); mark('write',false,m);
+    if(/row-level security|42501/i.test(m))
+      fix('<p><b>Fix — RLS is rejecting the insert.</b> A policy is requiring a signed-in user. Run:</p><pre>drop policy if exists "public insert" on public.cc_messages;\ncreate policy "public insert" on public.cc_messages for insert with check (true);</pre><p>If you added <code>uid uuid default auth.uid()</code> with an author-only policy, that only works once <b>Anonymous sign-ins</b> are enabled under Authentication → Providers.</p>');
+    else if(/api key|401|invalid/i.test(m))
+      fix('<p><b>Fix — the key is being rejected.</b> Your key is the newer <code>sb_publishable_…</code> format. Copy the legacy <b>anon public</b> JWT from Settings → API and replace <code>anon</code> in <code>script.js</code>.</p>');
+    else if(/404|not find|does not exist/i.test(m))
+      fix('<p><b>Fix — the table is not reachable.</b> Confirm it is <code>public.cc_messages</code> and that the API is exposed for the <code>public</code> schema.</p>'); }
+
+  const ch=supa.channel('cc:diagnostic');
+  let gotInsert=false, gotBroadcast=false;
+  ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'cc_messages'},()=>{gotInsert=true;})
+    .on('broadcast',{event:'ping'},()=>{gotBroadcast=true;});
+
+  const state=await new Promise(res=>{ ch.subscribe(s=>{ if(s==='SUBSCRIBED'||s==='CHANNEL_ERROR'||s==='TIMED_OUT') res(s); });
+    setTimeout(()=>res('TIMEOUT'),8000); });
+  if(state==='SUBSCRIBED') mark('sub',true,'realtime channel subscribed');
+  else { mark('sub',false,'channel state: '+state);
+    fix('<p><b>Fix:</b> Realtime may be disabled. Supabase → Database → Replication → enable for <code>cc_messages</code>.</p>'); }
+
+  if(state==='SUBSCRIBED'){
+    const mid2='diag2_'+Date.now();
+    await supa.from('cc_messages').insert({mid:mid2,sid:'diagnostic',ts:Date.now(),
+      data:{mid:mid2,sid:'diagnostic',name:'Diagnostic',ts:Date.now(),text:'realtime check'}}).catch(()=>{});
+    ch.send({type:'broadcast',event:'ping',payload:{t:Date.now()}});
+    await new Promise(r=>setTimeout(r,3500));
+    if(gotInsert) mark('realtime',true,'change event received — messages will sync live');
+    else { mark('realtime',false,'no INSERT event within 3.5s');
+      fix('<p><b>Fix — the table is not in the realtime publication.</b> Run:</p><pre>alter publication supabase_realtime add table public.cc_messages;</pre>'); }
+    mark('broadcast',gotBroadcast,gotBroadcast?'broadcast round-trip OK — office will sync':'no broadcast received');
+    await supa.from('cc_messages').delete().eq('sid','diagnostic').catch(()=>{});
+  } else { mark('realtime',false,'skipped'); mark('broadcast',false,'skipped'); }
+})();
+</script></body></html>

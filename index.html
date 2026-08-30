@@ -55,7 +55,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css?v=31">
+    <link rel="stylesheet" href="style.css?v=49">
 </head>
 
 <body>
@@ -75,10 +75,10 @@
 
     <!-- Page loader — JMJ letters + name -->
     <div class="loader" id="loader" aria-hidden="true">
-        <div class="loader-bar" aria-hidden="true"><span></span></div>
         <div class="loader-inner">
             <div class="loader-jmj"><span>J</span><span>M</span><span>J</span><i>.</i></div>
             <div class="loader-name-wrap"><div class="loader-name">Junica Marsen Jem</div></div>
+            <div class="loader-bar" aria-hidden="true"><span></span></div>
         </div>
     </div>
 
@@ -555,6 +555,11 @@
                                 <button class="c-act" id="cvBtnContact">Open</button>
                             </div>
                             <div class="contact-row">
+                                <span class="c-ico"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3M9 14h6"/></svg></span>
+                                <div class="c-body"><strong>Book a chat</strong><span>Pick a time that suits you</span></div>
+                                <button class="c-act" id="bookBtn">Book</button>
+                            </div>
+                            <div class="contact-row">
                                 <span class="c-ico"><svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4.98 3.5C4.98 4.6 4.1 5.5 3 5.5S1 4.6 1 3.5 1.9 1.5 3 1.5s1.98.9 1.98 2zM1.4 8.75h3.2V23H1.4V8.75zM8.5 8.75h3.07v1.95h.04c.43-.81 1.48-1.66 3.05-1.66 3.26 0 3.86 2.15 3.86 4.94V23h-3.2v-6.87c0-1.64-.03-3.75-2.29-3.75-2.29 0-2.64 1.79-2.64 3.63V23H8.5V8.75z"/></svg></span>
                                 <div class="c-body"><strong>LinkedIn</strong><a href="https://www.linkedin.com/in/junicamarsenjem-guiao" target="_blank" rel="noopener noreferrer">junicamarsenjem-guiao</a></div>
                                 <button class="c-act" data-copy-val="https://www.linkedin.com/in/junicamarsenjem-guiao">Copy</button>
@@ -774,7 +779,7 @@
                     <button data-cursor="arrow">Arrow</button>
                     <button data-cursor="dot">Dot</button>
                     <button data-cursor="system">System</button>
-                </div>
+</div>
             </div>
 
             <div class="panel-group">
@@ -783,6 +788,7 @@
                     <button data-sound-choice="on">On</button>
                     <button data-sound-choice="off">Off</button>
                 </div>
+            <p class="pref-build">portfolio build <b id="buildStamp">49</b></p>
             </div>
 
             
@@ -1031,6 +1037,12 @@
                     <div class="cc-head">
                         <strong>Community Chat</strong>
                         <span class="cc-presence" id="ccPresence"></span>
+                        <button type="button" class="cc-roster-btn" id="ccRosterBtn" aria-expanded="false"
+                            aria-controls="ccRoster" title="Who's here">
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="10" cy="8" r="3.2"/><path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 5.1a3.2 3.2 0 0 1 0 5.8"/></svg>
+                            <span id="ccRosterCount">0</span>
+                        </button>
+                        <div class="cc-roster" id="ccRoster" hidden></div>
                     </div>
                     <div class="cc-join" id="ccJoin">
                         <p>Join the chat</p>
@@ -1171,7 +1183,62 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="script.js?v=31"></script>
+    <script src="script.js?v=49"></script>
+
+    <div class="modal-overlay booking-modal" id="bookingModal" hidden aria-hidden="true" role="dialog"
+        aria-modal="true" aria-labelledby="bookingTitle">
+        <div class="modal booking-panel">
+            <button class="modal-close" id="bookingClose" aria-label="Close">&times;</button>
+            <p class="eyebrow">Book a chat</p>
+            <h3 id="bookingTitle">Let's find a time.</h3>
+            <p class="booking-sub" id="bookingSub">Tell me what you'd like to talk about and when suits you. I'll confirm by email.</p>
+
+            <div class="booking-embed" id="bookingEmbed" hidden></div>
+
+            <form class="booking-form" id="bookingForm" novalidate>
+                <label class="bk-field">
+                    <span>Your name</span>
+                    <input type="text" id="bkName" maxlength="60" autocomplete="name" required>
+                </label>
+                <label class="bk-field">
+                    <span>Email</span>
+                    <input type="email" id="bkEmail" maxlength="120" autocomplete="email" required>
+                </label>
+                <label class="bk-field">
+                    <span>What's it about?</span>
+                    <select id="bkTopic">
+                        <option value="Job opportunity">Job opportunity</option>
+                        <option value="Internship">Internship</option>
+                        <option value="Freelance project">Freelance project</option>
+                        <option value="Design feedback">Design feedback</option>
+                        <option value="Just saying hi">Just saying hi</option>
+                    </select>
+                </label>
+                <div class="bk-two">
+                    <label class="bk-field">
+                        <span>Preferred date</span>
+                        <input type="date" id="bkDate" required>
+                    </label>
+                    <label class="bk-field">
+                        <span>Time</span>
+                        <select id="bkTime"></select>
+                    </label>
+                </div>
+                <label class="bk-field">
+                    <span>Anything else? <i>optional</i></span>
+                    <textarea id="bkNote" rows="3" maxlength="400"></textarea>
+                </label>
+                <p class="bk-tz" id="bkTz"></p>
+                <p class="bk-msg" id="bkMsg" hidden></p>
+                <div class="bk-actions">
+                    <button type="submit" class="btn-primary" id="bkSubmit">Request this time</button>
+                    <a class="bk-alt" href="https://calendar.app.google/XmD6TrvMow25Mzg48" target="_blank" rel="noopener">open my calendar page</a>
+                    <a class="bk-alt" href="mailto:junicamarsenjemguiao@gmail.com">or email me</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </body>
 
 </html>

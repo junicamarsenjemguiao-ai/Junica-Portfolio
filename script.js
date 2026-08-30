@@ -1494,7 +1494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cvDataReq) return cvDataReq;
     cvDataReq = new Promise((resolve, reject) => {
       const sc = document.createElement('script');
-      sc.src = 'cv-data.js?v=31';
+      sc.src = 'cv-data.js?v=49';
       sc.onload = () => window.JMJ_CV ? resolve(window.JMJ_CV) : reject(new Error('empty'));
       sc.onerror = () => reject(new Error('missing'));
       document.head.appendChild(sc);
@@ -2037,29 +2037,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!bar) return;
     const set = v => { bar.style.transform = 'scaleX(' + Math.min(1, Math.max(0, v)) + ')'; };
     if (reduceMotion) { set(1); return; }
-    let p = 0, done = false;
+
+    // Time-based, not frame-based: parsing the embedded assets starves rAF, so a
+    // per-frame increment stalls at ~10% while the browser is busy. Easing off
+    // elapsed time keeps the bar moving smoothly however few frames we get.
+    const t0 = performance.now();
+    let done = false, finished = false;
     set(0);
     const tick = () => {
       if (done) return;
-      p += Math.max(0.0022, (0.9 - p) * 0.016);   // slow, deliberate fill
-      if (p > 0.9) p = 0.9;
-      set(p);
+      const elapsed = performance.now() - t0;
+      set(0.92 * (1 - Math.exp(-elapsed / 620)));
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    // Always let the bar be seen filling, even when the page is already cached.
-    const t0 = performance.now();
-    let finished = false;
+
     const finish = () => {
       if (finished) return;
       finished = true;
-      const wait = Math.max(0, 1050 - (performance.now() - t0));
-      setTimeout(() => { done = true; set(1); }, wait);
+      const wait = Math.max(0, 850 - (performance.now() - t0));
+      setTimeout(() => {
+        done = true;
+        const wrap = bar.parentElement;
+        if (wrap) wrap.classList.add('done');   // ease only the final jump to 100%
+        set(1);
+        setTimeout(() => {
+          const l = document.querySelector('#loader');
+          if (l && !l.classList.contains('hide')) { l.classList.add('hide'); bootAvatar(); }
+        }, 520);
+      }, wait);
     };
     window.addEventListener('load', finish);
     setTimeout(finish, 3600);
   })();
-  window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, reduceMotion ? 100 : 1450));
+  if (reduceMotion) window.addEventListener('load', () => setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, 100));
   setTimeout(() => { $('#loader').classList.add('hide'); bootAvatar(); }, 2600); // safety
 
   /* Land on the hero on every fresh visit — browsers otherwise restore the
@@ -2071,8 +2082,176 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('load', () => { toTop(); setTimeout(toTop, 60); });
   })();
 
-  document.documentElement.setAttribute('data-build', '31');
-  console.log('%cportfolio build 31', 'font-weight:600');
+  document.documentElement.setAttribute('data-build', '49');
+  { const bs = document.getElementById('buildStamp'); if (bs) bs.textContent = '49'; }
+  console.log('%cportfolio build 49', 'font-weight:600');
+
+  /* ============================ BOOK A CHAT ============================
+     Two ways to run this:
+     1. Paste a Calendly (or Google Calendar appointment) link below and the
+        modal embeds your real availability — visitors book straight into it.
+     2. Leave it blank and requests are saved to Supabase (cc_bookings) and
+        you confirm by email. Works with no third-party account.            */
+  const BOOKING = {
+    calendly: '',
+    googleUrl: 'https://calendar.app.google/XmD6TrvMow25Mzg48'
+  };
+
+  const bookingModal = $('#bookingModal');
+  if (bookingModal) {
+    const bkForm = $('#bookingForm'), bkEmbed = $('#bookingEmbed');
+    const embedUrl = BOOKING.calendly || BOOKING.googleUrl;
+
+    // Half-hour slots, 9am–6pm, in the visitor's own timezone
+    (function fillTimes() {
+      const sel = $('#bkTime'); if (!sel) return;
+      let out = '';
+      for (let h = 9; h <= 18; h++) {
+        for (const m of [0, 30]) {
+          if (h === 18 && m === 30) continue;
+          const hh = String(h).padStart(2, '0'), mm = String(m).padStart(2, '0');
+          const ampm = h < 12 ? 'AM' : 'PM', h12 = h % 12 === 0 ? 12 : h % 12;
+          out += `<option value="${hh}:${mm}">${h12}:${mm} ${ampm}</option>`;
+        }
+      }
+      sel.innerHTML = out;
+      sel.value = '14:00';
+    })();
+
+    (function setDateBounds() {
+      const d = $('#bkDate'); if (!d) return;
+      const t = new Date(); t.setDate(t.getDate() + 1);
+      const iso = x => x.toISOString().slice(0, 10);
+      d.min = iso(t);
+      const max = new Date(); max.setDate(max.getDate() + 60);
+      d.max = iso(max); d.value = iso(t);
+    })();
+
+    const tzEl = $('#bkTz');
+    if (tzEl) {
+      let tz = '';
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { }
+      tzEl.textContent = tz ? `Times shown in your timezone (${tz}).` : '';
+    }
+
+    function openBooking() {
+      bookingModal.hidden = false;
+      bookingModal.setAttribute('aria-hidden', 'false');
+      bookingModal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      if (embedUrl && bkEmbed && !bkEmbed.dataset.loaded) {
+        bkEmbed.dataset.loaded = '1';
+        bkEmbed.hidden = false;
+        if (bkForm) bkForm.hidden = true;
+        const sub = $('#bookingSub');
+        if (sub) sub.textContent = 'Pick any open slot below — it books straight into my calendar.';
+        const isCalendly = !!BOOKING.calendly;
+        const src = isCalendly
+          ? embedUrl + (embedUrl.includes('?') ? '&' : '?') + 'embed_domain=' + location.hostname + '&embed_type=Inline'
+          : embedUrl;
+        const f = document.createElement('iframe');
+        f.src = src;
+        f.title = 'Booking calendar';
+        f.loading = 'lazy';
+        f.setAttribute('frameborder', '0');
+        f.style.cssText = 'width:100%;height:min(680px,72vh);border:0;border-radius:12px';
+        bkEmbed.appendChild(f);
+
+        // Google sometimes refuses to frame its booking page. If nothing paints,
+        // fall back to a clear button rather than leaving an empty box.
+        setTimeout(() => {
+          let blank = false;
+          try { blank = !f.contentWindow || f.contentWindow.length === 0 && f.clientHeight < 80; } catch (e) { blank = false; }
+          if (blank || !f.clientHeight) {
+            bkEmbed.innerHTML = '<a class="btn-primary bk-open-cal" href="' + embedUrl +
+              '" target="_blank" rel="noopener">Open my booking page</a>' +
+              '<p class="bk-tz">Opens Google Calendar in a new tab.</p>';
+          }
+        }, 2500);
+      }
+      setTimeout(() => $('#bkName')?.focus(), 120);
+      unlock && unlock('contact');
+      sfx('pop');
+    }
+    function closeBooking() {
+      bookingModal.classList.remove('open');
+      bookingModal.setAttribute('aria-hidden', 'true');
+      bookingModal.hidden = true;
+      document.body.style.overflow = '';
+    }
+    $('#bookBtn')?.addEventListener('click', openBooking);
+    $('#bookingClose')?.addEventListener('click', closeBooking);
+    bookingModal.addEventListener('click', e => { if (e.target === bookingModal) closeBooking(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !bookingModal.hidden) closeBooking(); });
+
+    const validEmail = v => /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(String(v || '').trim());
+
+    function bkSay(text, kind) {
+      const el = $('#bkMsg'); if (!el) return;
+      el.hidden = false; el.textContent = text;
+      el.className = 'bk-msg ' + (kind || '');
+    }
+
+    bkForm?.addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = ($('#bkName').value || '').trim();
+      const email = ($('#bkEmail').value || '').trim();
+      const topic = $('#bkTopic').value;
+      const date = $('#bkDate').value;
+      const time = $('#bkTime').value;
+      const note = ($('#bkNote').value || '').trim();
+
+      if (name.length < 2) return bkSay('Please add your name so I know who I am meeting.', 'bad');
+      if (!validEmail(email)) return bkSay('That email address does not look right.', 'bad');
+      if (!date) return bkSay('Pick a date that works for you.', 'bad');
+      if (typeof hasProfanity === 'function' && (hasProfanity(name) || hasProfanity(note))) {
+        return bkSay('Please rephrase without inappropriate language.', 'bad');
+      }
+
+      const btn = $('#bkSubmit');
+      btn.disabled = true; btn.textContent = 'Sending\u2026';
+      let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (er) { }
+      const row = {
+        name, email, topic, note,
+        slot: date + 'T' + time,
+        tz, created_at: new Date().toISOString()
+      };
+
+      let saved = false;
+      if (typeof ccSupaEnabled === 'function' && ccSupaEnabled()) {
+        try {
+          const res = await fetch(CC_SUPABASE.url.replace(/\/$/, '') + '/rest/v1/cc_bookings', {
+            method: 'POST',
+            headers: {
+              apikey: CC_SUPABASE.anon,
+              Authorization: 'Bearer ' + CC_SUPABASE.anon,
+              'Content-Type': 'application/json',
+              Prefer: 'return=minimal'
+            },
+            body: JSON.stringify(row)
+          });
+          saved = res.ok;
+          if (!res.ok) console.warn('[booking] save failed', res.status, (await res.text()).slice(0, 140));
+        } catch (err) { console.warn('[booking] save failed', err); }
+      }
+
+      btn.disabled = false; btn.textContent = 'Request this time';
+      const pretty = new Date(date + 'T' + time).toLocaleString(undefined,
+        { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+      if (saved) {
+        bkSay('Request sent for ' + pretty + '. I will confirm by email shortly.', 'good');
+        bkForm.reset();
+      } else {
+        // Never lose the request: hand it to their mail client instead.
+        const body = encodeURIComponent(
+          `Hi Junica,\n\nI'd like to book a chat.\n\nName: ${name}\nEmail: ${email}\nTopic: ${topic}\nPreferred: ${pretty}${tz ? ' (' + tz + ')' : ''}\n${note ? '\nNote: ' + note : ''}\n`);
+        bkSay('Could not reach the server — opening your email app instead.', 'bad');
+        window.location.href = 'mailto:junicamarsenjemguiao@gmail.com?subject='
+          + encodeURIComponent('Booking request \u2014 ' + topic) + '&body=' + body;
+      }
+    });
+  }
 
   /* ===================== SCROLL PROGRESS ===================== */
   const progress = $('#scrollProgress');
@@ -2419,6 +2598,295 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function ccSupaEnabled() { return !!(CC_SUPABASE.url && CC_SUPABASE.anon); }
 
+  /* ---------- Library-free REST path ----------
+     The CDN module can be blocked by extensions, firewalls or CSP. These calls
+     use plain fetch, so message sync keeps working even when it never loads. */
+  const ccRestUrl = () => CC_SUPABASE.url.replace(/\/$/, '') + '/rest/v1/cc_messages';
+
+  /* ---------- Native realtime socket ----------
+     Supabase Realtime speaks the Phoenix protocol over a plain WebSocket, so we
+     can join the room without the CDN library. This is what carries typing
+     indicators, office movement and instant message delivery. */
+  let ccRt = null, ccRtReady = false, ccRtRef = 0, ccRtHb = null, ccRtTries = 0;
+  const ccRtTopic = () => 'realtime:cc:' + CC_ROOM;
+
+  function ccRtConnect() {
+    if (!ccSupaEnabled() || ccRt) return;
+    let url;
+    try {
+      url = CC_SUPABASE.url.replace(/^http/, 'ws').replace(/\/$/, '')
+        + '/realtime/v1/websocket?apikey=' + encodeURIComponent(CC_SUPABASE.anon) + '&vsn=1.0.0';
+    } catch (e) { return; }
+    try { ccRt = new WebSocket(url); } catch (e) { ccRt = null; return; }
+
+    ccRt.onopen = () => {
+      ccRtTries = 0;
+      ccRt.send(JSON.stringify({
+        topic: ccRtTopic(), event: 'phx_join',
+        payload: { config: { broadcast: { self: false }, presence: { key: ccId } } },
+        ref: String(++ccRtRef)
+      }));
+      clearInterval(ccRtHb);
+      ccRtHb = setInterval(() => {
+        if (ccRt && ccRt.readyState === 1) {
+          ccRt.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++ccRtRef) }));
+        }
+      }, 25000);
+    };
+
+    ccRt.onmessage = ev => {
+      let f; try { f = JSON.parse(ev.data); } catch (e) { return; }
+      if (f.event === 'phx_reply' && f.payload && f.payload.status === 'ok' && !ccRtReady) {
+        ccRtReady = true;
+        ccBackend = 'live'; updatePresence();
+        if (ccMe && ccMe.name) ccRtSend('office', { type: 'hello', id: ccId, name: ccMe.name, geo: ccMe.geo });
+      }
+      if (f.event === 'broadcast' && f.payload) {
+        const kind = f.payload.event, inner = f.payload.payload || {};
+        if (kind === 'msg') { if (inner.sid !== ccId) ccHandleRemote(inner); }
+        else if (kind === 'op') { if (inner.by !== ccId) ccApplyOp(inner); }
+        else if (kind === 'office') { if (inner.id !== ccId) ccHandleRemote(inner); }
+      }
+    };
+
+    ccRt.onclose = () => {
+      ccRtReady = false; clearInterval(ccRtHb); ccRt = null;
+      if (ccSupaEnabled() && ccRtTries < 6) { ccRtTries++; setTimeout(ccRtConnect, 2000 * ccRtTries); }
+    };
+    ccRt.onerror = () => { /* onclose handles the retry */ };
+  }
+
+  function ccRtSend(event, payload) {
+    if (!ccRt || ccRt.readyState !== 1 || !ccRtReady) return false;
+    try {
+      ccRt.send(JSON.stringify({
+        topic: ccRtTopic(), event: 'broadcast',
+        payload: { type: 'broadcast', event, payload }, ref: String(++ccRtRef)
+      }));
+      return true;
+    } catch (e) { return false; }
+  }
+  const ccRestHeaders = (extra) => Object.assign({
+    apikey: CC_SUPABASE.anon,
+    Authorization: 'Bearer ' + CC_SUPABASE.anon
+  }, extra || {});
+
+  async function ccRestPatch(mid, msg) {
+    const res = await fetch(ccRestUrl() + '?mid=eq.' + encodeURIComponent(mid), {
+      method: 'PATCH',
+      headers: ccRestHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+      body: JSON.stringify({ data: msg })
+    });
+    if (!res.ok) throw new Error('update ' + res.status + ': ' + (await res.text()).slice(0, 140));
+    return true;
+  }
+  async function ccRestDelete(mid) {
+    const res = await fetch(ccRestUrl() + '?mid=eq.' + encodeURIComponent(mid), {
+      method: 'DELETE', headers: ccRestHeaders({ Prefer: 'return=minimal' })
+    });
+    if (!res.ok) throw new Error('delete ' + res.status + ': ' + (await res.text()).slice(0, 140));
+    return true;
+  }
+
+  async function ccRestInsert(m) {
+    const res = await fetch(ccRestUrl(), {
+      method: 'POST',
+      headers: ccRestHeaders({ 'Content-Type': 'application/json', Prefer: 'return=minimal' }),
+      body: JSON.stringify({ mid: m.mid, sid: m.sid, ts: m.ts || Date.now(), data: m })
+    });
+    if (!res.ok) throw new Error('insert ' + res.status + ': ' + (await res.text()).slice(0, 140));
+    return true;
+  }
+
+  let ccPollTs = 0, ccPollTimer = null, ccPollFails = 0, ccLastErr = '', ccPollTick = 0;
+  const ccTypers = new Map();
+  let ccTypingUntil = 0;
+
+  /* ---------- Who's here ----------
+     Positions carry a name, messages carry location and device; merge whatever
+     each source gives us into one profile per visitor. */
+  const ccProfiles = new Map();
+  function ccNoteProfile(id, info) {
+    if (!id || id === ccId) return;
+    const prev = ccProfiles.get(id) || {};
+    ccProfiles.set(id, {
+      name: info.name || prev.name || 'Guest',
+      geo: info.geo || prev.geo || '',
+      devLabel: info.devLabel || prev.devLabel || '',
+      gender: info.gender || prev.gender || '',
+      joined: prev.joined || Date.now(),
+      seen: Date.now(),
+      left: info.left === true ? Date.now() : (info.left === false ? 0 : (prev.left || 0))
+    });
+    ccUpdateRosterCount();
+    const box = document.querySelector('#ccRoster');
+    if (box && !box.hidden) ccRenderRoster();
+  }
+  function ccUpdateRosterCount() {
+    const el = document.querySelector('#ccRosterCount');
+    if (!el) return;
+    const here = [...ccProfiles.values()].filter(p => !p.left).length + (ccMe && ccMe.name ? 1 : 0);
+    el.textContent = String(here);
+  }
+  function ccRenderRoster() {
+    const box = document.querySelector('#ccRoster');
+    if (!box) return;
+    const rows = [];
+    if (ccMe && ccMe.name) {
+      rows.push({ id: ccId, name: ccMe.name, geo: ccMe.geo, devLabel: (ccDeviceInfo() || {}).label,
+                  gender: ccMe.gender, you: true, here: true });
+    }
+    ccProfiles.forEach((p, id) => {
+      if (id === ccId) return;
+      rows.push({ id, name: p.name, geo: p.geo, devLabel: p.devLabel, gender: p.gender,
+                  here: !p.left, left: p.left, typing: ccTypers.has(id) });
+    });
+    rows.sort((a, b) => (b.here - a.here) || (a.you ? -1 : b.you ? 1 : String(a.name).localeCompare(b.name)));
+    const here = rows.filter(r => r.here).length;
+    box.innerHTML =
+      '<div class="cc-roster-head">' + here + ' here' +
+        (rows.length > here ? ' \u00b7 ' + (rows.length - here) + ' left' : '') + '</div>' +
+      '<ul class="cc-roster-list">' + (rows.length ? rows.map(r =>
+        '<li class="cc-roster-row' + (r.here ? '' : ' gone') + '">' +
+          ccAvatar(r.name, r.here, r.gender) +
+          '<div class="cc-roster-who"><b>' + esc(r.name) +
+            (r.you ? ' <span class="cc-you">you</span>' : '') + '</b><span>' +
+            (r.typing ? 'typing\u2026'
+              : r.here ? (esc([r.geo, r.devLabel].filter(Boolean).join(' \u00b7 ')) || 'in the room')
+                : 'left ' + relTime(r.left || Date.now())) +
+          '</span></div></li>').join('')
+        : '<li class="cc-roster-empty">Nobody else yet \u2014 you have the room to yourself.</li>') +
+      '</ul>';
+  }
+  let ccLastTypingTx = 0, ccUnread = 0;
+
+  function ccSysNote(text) { ccRender({ sys: true, text }, false); }
+
+  function ccSendTyping() {
+    if (!ccMe || !ccMe.name) return;
+    const now = Date.now();
+    if (now - ccLastTypingTx < 1800) return;
+    ccLastTypingTx = now;
+    const payload = { type: 'typing', id: ccId, name: ccMe.name };
+    if (ccChan) ccChan.postMessage(payload);                       // other tabs here
+    if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'office', payload });
+    else ccRtSend('office', payload);                              // everyone else
+  }
+  function ccNoteTyping(m) {
+    if (!m || m.id === ccId) return;
+    ccTypers.set(m.id, { name: m.name || 'Someone', until: Date.now() + 3500 });
+    ccRenderTyping();
+  }
+  function ccRenderTyping() {
+    const chat = document.querySelector('.community-chat');
+    if (!chat) return;
+    const now = Date.now();
+    [...ccTypers.entries()].forEach(([id, v]) => { if (v.until < now) ccTypers.delete(id); });
+    let el = document.querySelector('.cc-typing');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'cc-typing';
+      chat.insertBefore(el, document.querySelector('.cc-net') || document.querySelector('.cc-input'));
+    }
+    const names = [...ccTypers.values()].map(v => v.name);
+    if (!names.length) { el.hidden = true; return; }
+    el.hidden = false;
+    const who = names.length === 1 ? names[0]
+      : names.length === 2 ? names[0] + ' and ' + names[1]
+        : names[0] + ' and ' + (names.length - 1) + ' others';
+    el.innerHTML = '<span class="cc-dots"><i></i><i></i><i></i></span> ' + esc(who) + (names.length > 1 ? ' are typing\u2026' : ' is typing\u2026');
+  }
+  setInterval(ccRenderTyping, 700);
+
+  function ccBumpUnread() {
+    ccUnread++;
+    const fab = document.querySelector('.community-fab, #communityFab');
+    if (fab) { fab.classList.add('has-unread'); fab.setAttribute('data-unread', ccUnread > 9 ? '9+' : String(ccUnread)); }
+  }
+  function ccClearUnread() {
+    ccUnread = 0;
+    const fab = document.querySelector('.community-fab, #communityFab');
+    if (fab) { fab.classList.remove('has-unread'); fab.removeAttribute('data-unread'); }
+  }
+  async function ccPollOnce() {
+    const since = ccPollTs || (Date.now() - 6 * 3600 * 1000);
+    const url = ccRestUrl() + '?select=mid,ts,data&order=ts.asc&limit=120&ts=gt.' + since;
+    const res = await fetch(url, { headers: ccRestHeaders() });
+    if (!res.ok) throw new Error('poll ' + res.status + ': ' + (await res.text()).slice(0, 140));
+    const rows = await res.json();
+    let fresh = 0;
+    (rows || []).forEach(row => {
+      if (row.ts > ccPollTs) ccPollTs = row.ts;
+      const m = row && row.data;
+      if (!m || !m.mid) return;
+      if (m.sid === ccId || ccSeen.has(m.mid)) return;
+      ccSeen.add(m.mid);
+      const list = ccHistory(); list.push(m); ccSaveHistory(list);
+      if (commOpen) ccRender(m); else ccBumpUnread();
+      fresh++;
+    });
+    return fresh;
+  }
+
+  // An edit keeps the row's original ts, so a "new rows only" poll can never see
+  // it. Every few cycles we re-read the recent window and reconcile changes.
+  async function ccReconcile() {
+    const res = await fetch(ccRestUrl() + '?select=mid,ts,data&order=ts.desc&limit=60', { headers: ccRestHeaders() });
+    if (!res.ok) return;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return;
+    const server = new Map(rows.map(r => [r.mid, r.data]));
+    const list = ccHistory();
+    let changed = false;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i];
+      if (!m || !m.mid || m.sys) continue;
+      if (!server.has(m.mid)) {
+        if (rows.length && m.ts >= (rows[rows.length - 1].ts || 0)) { list.splice(i, 1); changed = true; }
+        continue;
+      }
+      const fresh = server.get(m.mid);
+      if (fresh && JSON.stringify(fresh) !== JSON.stringify(m)) { list[i] = fresh; changed = true; }
+    }
+    if (changed) { ccSaveHistory(list); if (commOpen) ccRerenderAll(); }
+  }
+
+  function ccStartPolling() {
+    if (!ccSupaEnabled() || ccPollTimer) return;
+    const run = () => ccPollOnce()
+      .then(() => { if (++ccPollTick % 4 === 0) return ccReconcile().catch(() => { }); })
+      .then(() => {
+        ccPollFails = 0;
+        if (ccBackend !== 'live') { ccBackend = 'sync'; updatePresence(); }
+      })
+      .catch(err => {
+        ccPollFails++;
+        ccLastErr = String(err.message || err).slice(0, 150);
+        if (ccPollFails === 1) console.warn('[community] sync failed —', ccLastErr);
+        if (ccPollFails >= 2 && ccBackend !== 'live') { ccBackend = 'error'; updatePresence(); }
+      });
+    run();
+    ccPollTimer = setInterval(run, 2500);
+  }
+  function ccStopPolling() { clearInterval(ccPollTimer); ccPollTimer = null; }
+
+  // Type jmjBackend() in the console for a plain-language status report.
+  window.jmjBackend = () => {
+    const r = {
+      configured: ccSupaEnabled(),
+      libraryLoaded: !!supa,
+      channelSubscribed: !!supaReady,
+      state: ccBackend,
+      peersInOffice: peers.size,
+      messagesCached: (ccHistory() || []).length
+    };
+    console.table(r);
+    console.log(r.state === 'live'
+      ? 'Realtime is connected — messages and office movement sync to everyone.'
+      : 'NOT live. Open /supabase-check.html on this site to see which step fails.');
+    return r;
+  };
+
   function ccReplaceMsg(m) {
     if (!m || !m.mid) return;
     const list = ccHistory();
@@ -2431,7 +2899,19 @@ document.addEventListener('DOMContentLoaded', () => {
   async function ccSupaInit() {
     if (!ccSupaEnabled()) return false;
     try {
-      const mod = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+      // Try several CDNs: one being blocked (ad-blocker, school/office firewall)
+      // shouldn't take the whole forum offline.
+      const CDNS = [
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm',
+        'https://esm.sh/@supabase/supabase-js@2',
+        'https://unpkg.com/@supabase/supabase-js@2/dist/module/index.js'
+      ];
+      let mod = null, lastErr = null;
+      for (const url of CDNS) {
+        try { mod = await import(/* webpackIgnore: true */ url); if (mod && mod.createClient) break; }
+        catch (err) { lastErr = err; mod = null; }
+      }
+      if (!mod || !mod.createClient) throw (lastErr || new Error('no CDN reachable'));
       supa = mod.createClient(CC_SUPABASE.url, CC_SUPABASE.anon, {
         realtime: { params: { eventsPerSecond: 20 } }
       });
@@ -2459,85 +2939,69 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) { console.warn('[community] history load failed', e); }
 
-    // 2. Realtime: messages via database changes + office movement via broadcast
-    supaChan = supa.channel('cc:' + CC_ROOM, {
-      config: { broadcast: { self: false } }
-    });
-
-    supaChan.on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'cc_messages' },
-      payload => {
-        console.log('[community] REALTIME INSERT:', payload);
-        const m = payload.new && payload.new.data;
+    // 2. Realtime: messages via table changes, office movement via broadcast
+    supaChan = supa.channel('cc:' + CC_ROOM, { config: { broadcast: { self: false } } })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cc_messages' }, p => {
+        const m = p.new && p.new.data;
         if (m) ccHandleRemote(m);
-      }
-    );
-
-    supaChan.on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'cc_messages' },
-      payload => {
-        const m = payload.new && payload.new.data;
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'cc_messages' }, p => {
+        const m = p.new && p.new.data;
         if (m && m.sid !== ccId) ccReplaceMsg(m);
-      }
-    );
-
-    supaChan.on(
-      'postgres_changes',
-      { event: 'DELETE', schema: 'public', table: 'cc_messages' },
-      payload => {
-        const mid = payload.old && payload.old.mid;
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'cc_messages' }, p => {
+        const mid = p.old && p.old.mid;
         if (mid) ccApplyOp({ op: 'delete', mid });
-      }
-    );
-
-    supaChan.on(
-      'broadcast',
-      { event: 'office' },
-      ({ payload }) => {
+      })
+      .on('broadcast', { event: 'office' }, ({ payload }) => {
         if (payload && payload.id !== ccId) ccHandleRemote(payload);
-      }
-    );
-
-    // Realtime forum operations: reactions, edits, and deletes.
-    supaChan.on(
-      'broadcast',
-      { event: 'forum-op' },
-      ({ payload }) => {
-        if (!payload) return;
-        if (payload.by && payload.by === ccId) return;
-
-        console.log('[community] Realtime forum operation received:', payload.op, payload.mid);
-        ccHandleRemote(payload);
-      }
-    );
-
-    supaChan.subscribe(st => {
-      console.log('[community] Supabase realtime status:', st);
-
-      supaReady = (st === 'SUBSCRIBED');
-
-      if (st === 'SUBSCRIBED') {
-        console.log('%c[community] Realtime connected', 'font-weight:600');
-
-        if (ccMe && ccMe.name) {
-          ccRelaySend({
-            type: 'hello',
-            id: ccId,
-            name: ccMe.name,
-            geo: ccMe.geo
-          });
+      })
+      .on('broadcast', { event: 'msg' }, ({ payload }) => {
+        if (payload && payload.sid !== ccId) ccHandleRemote(payload);
+      })
+      .on('broadcast', { event: 'op' }, ({ payload }) => {
+        if (payload && payload.by !== ccId) ccApplyOp(payload);
+      })
+      .on('presence', { event: 'sync' }, () => {
+        try {
+          const state = supaChan.presenceState();
+          let count = 0;
+          Object.values(state).forEach(arr => arr.forEach(v => {
+            count++;
+            if (v && v.id && v.id !== ccId) {
+              const prev = peers.get(v.id) || {};
+              peers.set(v.id, {
+                name: v.name || prev.name || 'Guest',
+                x: prev.x ?? v.x ?? 0.5, y: prev.y ?? v.y ?? 0.5,
+                tx: v.x ?? prev.tx ?? 0.5, ty: v.y ?? prev.ty ?? 0.5,
+                last: Date.now()
+              });
+            }
+          }));
+          supaOnline = count;
+          updatePresence();
+        } catch (e) { }
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        (leftPresences || []).forEach(v => {
+          if (!v || !v.id) return;
+          const gone = peers.get(v.id);
+          peers.delete(v.id); ccTypers.delete(v.id);
+          if (gone && gone.name && commOpen) ccSysNote(gone.name + ' left the forum');
+        });
+        ccRenderTyping(); updatePresence();
+      })
+      .subscribe(async st => {
+        supaReady = (st === 'SUBSCRIBED');
+        if (supaReady) {
+          ccBackend = 'live';
+          try { await supaChan.track({ id: ccId, name: (ccMe && ccMe.name) || 'Guest', x: player.x, y: player.y }); } catch (e) { }
+          if (ccMe && ccMe.name) ccRelaySend({ type: 'hello', id: ccId, name: ccMe.name, geo: ccMe.geo });
+        } else if (st === 'CHANNEL_ERROR' || st === 'TIMED_OUT' || st === 'CLOSED') {
+          ccBackend = 'error';
         }
-      } else if (st === 'CHANNEL_ERROR') {
-        console.error('[community] Supabase realtime channel error');
-      } else if (st === 'TIMED_OUT') {
-        console.error('[community] Supabase realtime connection timed out');
-      } else if (st === 'CLOSED') {
-        console.warn('[community] Supabase realtime channel closed');
-      }
-    });
-
+        updatePresence();
+      });
     console.log('%c[community] Supabase backend active', 'font-weight:600');
     return true;
   }
@@ -2547,95 +3011,40 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       // Office movement is ephemeral — broadcast only, never written to the DB
       if (obj.type === 'pos' || obj.type === 'hello' || obj.type === 'bye') {
-        if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'office', payload: obj });
-        return true;
-      }
-      // Forum operations are broadcast immediately so reactions, edits,
-      // and deletes appear live on every connected visitor.
-      if (obj.op === 'react' || obj.op === 'edit' || obj.op === 'delete') {
         if (supaChan && supaReady) {
-          const result = await supaChan.send({
-            type: 'broadcast',
-            event: 'forum-op',
-            payload: obj
-          });
-
-          if (result !== 'ok') {
-            console.warn('[community] Forum operation broadcast failed:', result);
-          } else {
-            console.log('[community] Forum operation broadcast:', obj.op, obj.mid);
+          supaChan.send({ type: 'broadcast', event: 'office', payload: obj });
+          if (obj.type === 'pos') {
+            supaChan.track({ id: ccId, name: (ccMe && ccMe.name) || 'Guest', x: obj.x, y: obj.y }).catch(() => { });
           }
         }
-
-        // Keep the database as the persistent source of truth.
-        if (obj.op === 'delete') {
-          const { error } = await supa
-            .from('cc_messages')
-            .delete()
-            .eq('mid', obj.mid);
-
-          if (error) {
-            console.error('[community] Supabase delete failed:', error);
-            return false;
-          }
-          return true;
-        }
-
-        const m = ccFindMsg(obj.mid);
-
-        if (m) {
-          const { error } = await supa
-            .from('cc_messages')
-            .update({ data: m })
-            .eq('mid', obj.mid);
-
-          if (error) {
-            console.error('[community] Supabase update failed:', error);
-            return false;
-          }
-        }
-
         return true;
       }
-
+      if (obj.op === 'delete') {
+        if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'op', payload: obj });
+        await supa.from('cc_messages').delete().eq('mid', obj.mid);
+        return true;
+      }
+      if (obj.op === 'edit' || obj.op === 'react') {
+        if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'op', payload: obj });
+        const m = ccFindMsg(obj.mid);            // already mutated locally by ccApplyOp
+        if (m) await supa.from('cc_messages').update({ data: m }).eq('mid', obj.mid);
+        return true;
+      }
       if (obj.mid) {
-        const { error } = await supa
-          .from('cc_messages')
-          .insert({
-            mid: obj.mid,
-            sid: obj.sid,
-            ts: obj.ts || Date.now(),
-            data: obj
-          });
-
-        if (error) {
-          console.error('[community] Supabase message insert failed:', error);
-          return false;
-        }
-
-        console.log('[community] Message saved to Supabase:', obj.mid);
-
-        // Broadcast immediately to every connected visitor.
-        // The database insert above keeps the message persistent.
-        if (supaChan && supaReady) {
-          const result = await supaChan.send({
-            type: 'broadcast',
-            event: 'message',
-            payload: obj
-          });
-
-          if (result !== 'ok') {
-            console.warn('[community] Supabase message broadcast failed:', result);
-          } else {
-            console.log('[community] Message broadcast realtime:', obj.mid);
-          }
-        } else {
-          console.warn('[community] Realtime channel not ready; message was saved only.');
-        }
-
+        // Deliver instantly over broadcast (works without the realtime publication),
+        // then persist so the history survives a reload.
+        if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'msg', payload: obj });
+        await supa.from('cc_messages')
+          .insert({ mid: obj.mid, sid: obj.sid, ts: obj.ts || Date.now(), data: obj });
         return true;
       }
-    } catch (e) { console.warn('[community] send failed', e); }
+    } catch (e) {
+      console.warn('[community] send failed — is the cc_messages table created?', e);
+      if (ccBackend !== 'error') {
+        ccBackend = 'error'; updatePresence();
+        ccShowNotice('\u26a0 Chat backend unreachable \u2014 messages are staying on this device.');
+      }
+    }
     return false;
   }
   const CC_ROOM = 'jmj-office-v1';
@@ -2653,39 +3062,39 @@ document.addEventListener('DOMContentLoaded', () => {
   /* Cross-device relay: broadcasts every message to all connected visitors.
      Wraps the same message shapes used by BroadcastChannel so both paths share code. */
   let ccWs = null, ccWsReady = false, ccWsRetry = 0, ccWsTimer = null;
-  let ccSupaInitPromise = null;
-
   function ccRelaySend(obj) {
-    if (ccSupaEnabled()) {
-      if (supa) {
-        ccSupaSend(obj).catch(err => {
-          console.error('[community] Supabase send error:', err);
-        });
-        return;
-      }
-
-      if (!ccSupaInitPromise) {
-        ccSupaInitPromise = ccSupaInit();
-      }
-
-      ccSupaInitPromise.then(() => {
-        if (supa) {
-          return ccSupaSend(obj);
-        }
-        return false;
-      }).catch(err => {
-        console.error('[community] Supabase initialization/send error:', err);
-      });
-
+    if (supa) { ccSupaSend(obj); return; }   // Supabase takes over when configured
+    // Office movement / presence chatter: socket only, never the database.
+    if (obj && (obj.type === 'pos' || obj.type === 'hello' || obj.type === 'bye' || obj.type === 'typing')) {
+      ccRtSend('office', obj);
       return;
     }
-
+    // Edits, reactions and deletes also have to reach the database.
+    if (ccSupaEnabled() && obj && obj.op && obj.mid) {
+      ccRtSend('op', obj);                        // instant for everyone online
+      const done = obj.op === 'delete'
+        ? ccRestDelete(obj.mid)
+        : ccRestPatch(obj.mid, ccFindMsg(obj.mid));
+      done.catch(err => {
+        ccLastErr = String(err.message || err).slice(0, 150);
+        console.warn('[community] ' + obj.op + ' failed —', ccLastErr);
+      });
+      return;
+    }
+    // No library? Messages still reach everyone over REST.
+    if (ccSupaEnabled() && obj && obj.mid && !obj.op) {
+      ccRtSend('msg', obj);                       // instant delivery
+      ccRestInsert(obj)
+        .then(() => { if (ccBackend !== 'live') { ccBackend = 'sync'; updatePresence(); } })
+        .catch(err => {
+          ccLastErr = String(err.message || err).slice(0, 150);
+          console.warn('[community] send failed —', ccLastErr);
+          ccBackend = 'error'; updatePresence();
+        });
+      return;
+    }
     if (ccWs && ccWsReady) {
-      try {
-        ccWs.send(JSON.stringify({ room: CC_ROOM, ...obj }));
-      } catch (err) {
-        console.error('[community] WebSocket send error:', err);
-      }
+      try { ccWs.send(JSON.stringify({ room: CC_ROOM, ...obj })); } catch {}
     }
   }
   function ccRelayConnect() {
@@ -2714,14 +3123,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const ccSeen = new Set(); // message ids already rendered — prevents echo duplicates
   function ccHandleRemote(m) {
     if (m.type === 'pos' || m.type === 'hello') {
-      peers.set(m.id, { name: m.name || 'Guest', x: m.x ?? 0.5, y: m.y ?? 0.5, last: Date.now() });
+      {
+        ccNoteProfile(m.id, { name: m.name, left: false });
+        if (m.typing) ccNoteTyping({ id: m.id, name: m.name });
+        else if (ccTypers.has(m.id)) { ccTypers.delete(m.id); ccRenderTyping(); }
+        const prev = peers.get(m.id) || {};
+        peers.set(m.id, {
+          name: m.name || prev.name || 'Guest',
+          x: prev.x ?? m.x ?? 0.5, y: prev.y ?? m.y ?? 0.5,      // current (animated)
+          tx: m.x ?? 0.5, ty: m.y ?? 0.5,                        // target
+          last: Date.now()
+        });
+      }
       // when someone says hello, reply with our position so we appear for them too
-      if (m.type === 'hello' && ccMe && ccMe.name) ccRelaySend({ type: 'pos', id: ccId, name: ccMe.name, x: player.x, y: player.y });
+      if (m.type === 'hello' && ccMe && ccMe.name) ccRelaySend({ type: 'pos', id: ccId, name: ccMe.name, x: player.x, y: player.y, typing: Date.now() < ccTypingUntil });
       return;
     }
-    if (m.type === 'bye') { peers.delete(m.id); return; }
+    if (m.type === 'typing') { ccNoteTyping(m); return; }
+    if (m.type === 'bye') {
+      const gone = peers.get(m.id);
+      ccNoteProfile(m.id, { left: true });
+      peers.delete(m.id); ccTypers.delete(m.id); ccRenderTyping();
+      if (gone && gone.name && commOpen) ccSysNote(gone.name + ' left the forum');
+      updatePresence();
+      return;
+    }
     if (m.op) { ccApplyOp(m); return; }
-    if (m.text) {
+    if (m.text || m.sticker || m.gif) {
       if (m.sid === ccId) return;               // ignore echoes of our own messages
       if (m.mid && ccSeen.has(m.mid)) return;   // already rendered from another channel
       if (m.mid) ccSeen.add(m.mid);
@@ -2873,30 +3301,105 @@ document.addEventListener('DOMContentLoaded', () => {
     const nowMs = performance.now();
     if (ccChan && nowMs - lastPosTx > 120) {
       lastPosTx = nowMs;
-      const msg = { type: 'pos', id: ccId, name: (ccMe.name || 'Guest'), x: player.x, y: player.y };
+      const msg = { type: 'pos', id: ccId, name: (ccMe.name || 'Guest'), x: player.x, y: player.y,
+                    typing: Date.now() < ccTypingUntil };
       ccChan.postMessage(msg);
       ccRelaySend(msg);
     }
     // ghost visitors from other tabs — keep in sync with peersHas() online window
     const cutoff = Date.now() - 12000;
+    const labelRects = [];
     peers.forEach((g, id) => {
       if (g.last < cutoff) { peers.delete(id); return; }
-      const gx = g.x * oW, gy = g.y * oH;
-      octx.globalAlpha = 0.15; octx.fillStyle = '#000';
-      octx.beginPath(); octx.ellipse(gx, gy + 15, 9, 3.5, 0, 0, Math.PI * 2); octx.fill();
-      octx.globalAlpha = 0.75;
-      octx.beginPath(); octx.arc(gx, gy, 11, 0, Math.PI * 2);
-      octx.fillStyle = ccAvatarColor(g.name); octx.fill();
-      octx.strokeStyle = cssVar('--bg', '#fff'); octx.lineWidth = 2; octx.stroke();
-      octx.fillStyle = '#fff'; octx.font = '700 9px Inter, sans-serif'; octx.textAlign = 'center'; octx.textBaseline = 'middle';
-      octx.fillText(g.name.slice(0, 2).toUpperCase(), gx, gy + 0.5);
+      // ease toward the last reported position so movement reads as walking
+      if (typeof g.tx === 'number') {
+        g.x += (g.tx - g.x) * 0.18;
+        g.y += (g.ty - g.y) * 0.18;
+      }
+      // Gentle idle bob so the room feels alive, offset per person
+      g.bob = (g.bob || (ccHash(g.name || id) % 100) / 16) + 0.045;
+      const lift = Math.sin(g.bob) * 1.8;
+      const gx = g.x * oW, gy = g.y * oH + lift;
+      const moving = typeof g.tx === 'number' && (Math.abs(g.tx - g.x) > 0.004 || Math.abs(g.ty - g.y) > 0.004);
+
+      // contact shadow — tightens as they lift, so the bob reads as weight
+      octx.globalAlpha = 0.16 - Math.sin(g.bob) * 0.03;
+      octx.fillStyle = '#000';
+      octx.beginPath(); octx.ellipse(gx, g.y * oH + 15, 9 - lift * 0.35, 3.4 - lift * 0.15, 0, 0, Math.PI * 2); octx.fill();
+
+      // soft glow while walking, so movement is legible at a glance
+      if (moving) {
+        octx.globalAlpha = 0.18; octx.fillStyle = ccAvatarColor(g.name);
+        octx.beginPath(); octx.arc(gx, gy, 17, 0, Math.PI * 2); octx.fill();
+      }
+
       octx.globalAlpha = 1;
-      octx.fillStyle = dim; octx.font = '9px "JetBrains Mono", monospace';
-      octx.fillText(g.name.slice(0, 10), gx, gy - 18);
+      octx.beginPath(); octx.arc(gx, gy, 11.5, 0, Math.PI * 2);
+      octx.fillStyle = ccAvatarColor(g.name); octx.fill();
+      octx.strokeStyle = cssVar('--bg-elev', '#fff'); octx.lineWidth = 2.5; octx.stroke();
+      octx.globalAlpha = 0.35; octx.strokeStyle = '#000'; octx.lineWidth = 0.6; octx.stroke();
+
+      octx.globalAlpha = 1;
+      octx.fillStyle = '#fff';
+      octx.font = '700 9.5px Inter, sans-serif'; octx.textAlign = 'center'; octx.textBaseline = 'middle';
+      octx.fillText((g.name || '?').slice(0, 2).toUpperCase(), gx, gy + 0.5);
+      // A soft "…" bubble while that person is typing
+      if (ccTypers.has(id)) {
+        const bx = gx, by = gy - 34;
+        octx.globalAlpha = .95; octx.fillStyle = cssVar('--bg-elev', '#fff');
+        octx.beginPath(); octx.roundRect(bx - 15, by - 9, 30, 18, 999); octx.fill();
+        octx.globalAlpha = .5; octx.strokeStyle = cssVar('--line', 'rgba(0,0,0,.12)');
+        octx.lineWidth = 1; octx.stroke();
+        const tt = Date.now() / 260;
+        for (let d = 0; d < 3; d++) {
+          octx.globalAlpha = .35 + .55 * (0.5 + 0.5 * Math.sin(tt + d * 0.9));
+          octx.fillStyle = dim;
+          octx.beginPath(); octx.arc(bx - 7 + d * 7, by, 1.9, 0, Math.PI * 2); octx.fill();
+        }
+        octx.globalAlpha = 1;
+      }
+
+      // Name tag — clamped, placed clear of the desks, and skipped when it would
+      // collide with a tag already drawn (keeps a busy room readable).
+      if (peers.size <= 10 && oW >= 340) {
+        const fs = Math.max(8, Math.min(11, Math.round(oW / 46)));
+        const label = ccClampName(g.name, oW < 460 ? 8 : 12);
+        octx.font = `${fs}px "JetBrains Mono", monospace`;
+        const tw = octx.measureText(label).width;
+        const padX = 5, bh = fs + 6, bw = tw + padX * 2;
+        const above = gy > 46;                       // flip below when near the top
+        const by = above ? gy - 22 - bh / 2 : gy + 20 - bh / 2;
+        const bx = Math.max(2, Math.min(oW - bw - 2, gx - bw / 2));
+        const hit = labelRects.some(r => !(bx + bw < r.x || bx > r.x + r.w || by + bh < r.y || by > r.y + r.h));
+        if (!hit) {
+          labelRects.push({ x: bx, y: by, w: bw, h: bh });
+          octx.globalAlpha = 0.9; octx.fillStyle = cssVar('--bg-elev', '#fff');
+          octx.beginPath(); octx.roundRect(bx, by, bw, bh, 999); octx.fill();
+          octx.globalAlpha = 0.5; octx.strokeStyle = cssVar('--line', 'rgba(0,0,0,.1)');
+          octx.lineWidth = 1; octx.stroke();
+          octx.globalAlpha = 1; octx.fillStyle = dim;
+          octx.textAlign = 'center'; octx.textBaseline = 'middle';
+          octx.fillText(label, bx + bw / 2, by + bh / 2);
+        }
+      }
+      octx.globalAlpha = 1;
     });
     updatePresence();
     // me
     const px = player.x * oW, py = player.y * oH + Math.sin(player.bob) * 1.6;
+    if (ccMe && ccMe.name && oW >= 340 && peers.size <= 10) {
+      const fs = Math.max(8, Math.min(11, Math.round(oW / 46)));
+      const myLabel = ccClampName(ccMe.name, oW < 460 ? 8 : 12);
+      octx.font = `${fs}px "JetBrains Mono", monospace`;
+      const tw = octx.measureText(myLabel).width, padX = 5, bh = fs + 6, bw = tw + padX * 2;
+      const by = py > 46 ? py - 24 - bh / 2 : py + 22 - bh / 2;
+      const bx = Math.max(2, Math.min(oW - bw - 2, px - bw / 2));
+      octx.globalAlpha = 0.95; octx.fillStyle = cssVar('--accent', '#15140F');
+      octx.beginPath(); octx.roundRect(bx, by, bw, bh, 999); octx.fill();
+      octx.globalAlpha = 1; octx.fillStyle = cssVar('--accent-ink', '#fff');
+      octx.textAlign = 'center'; octx.textBaseline = 'middle';
+      octx.fillText(myLabel, bx + bw / 2, by + bh / 2);
+    }
     octx.beginPath(); octx.ellipse(px, py + player.r + 4, player.r * 0.85, 4, 0, 0, Math.PI * 2);
     octx.fillStyle = 'rgba(0,0,0,.18)'; octx.fill();
     octx.beginPath(); octx.arc(px, py, player.r + 3, 0, Math.PI * 2);
@@ -2931,6 +3434,35 @@ document.addEventListener('DOMContentLoaded', () => {
   try { ccChan = new BroadcastChannel('jmj-community'); } catch {}
   function ccHistory() { return store.get('commLog', []); }
   function ccSaveHistory(list) { store.set('commLog', list.slice(-60)); }
+  const CC_IDLE_MS = 45000;       // stop showing someone after 45s of no input
+  let ccLastAct = Date.now(), ccIdle = false;
+  function ccMarkActive() {
+    ccLastAct = Date.now();
+    if (ccIdle) {
+      ccIdle = false;
+      if (ccMe && ccMe.name) {
+        ccRelaySend({ type: 'hello', id: ccId, name: ccMe.name, geo: ccMe.geo });
+        if (supaChan && supaReady) supaChan.track({ id: ccId, name: ccMe.name, x: player.x, y: player.y }).catch(() => { });
+      }
+    }
+  }
+  function ccGoIdle() {
+    if (ccIdle) return;
+    ccIdle = true;
+    ccRelaySend({ type: 'bye', id: ccId });
+    if (supaChan && supaReady) supaChan.untrack().catch(() => { });
+    updatePresence();
+  }
+  ['keydown', 'pointerdown', 'pointermove', 'wheel', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, ccMarkActive, { passive: true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) ccGoIdle(); else ccMarkActive();
+  });
+  window.addEventListener('pagehide', () => ccGoIdle());
+  setInterval(() => { if (!ccIdle && Date.now() - ccLastAct > CC_IDLE_MS) ccGoIdle(); }, 5000);
+
+  let ccBackend = 'local';        // 'local' | 'live' | 'error'
+  let supaOnline = 0;
   let lastPresence = '';
   function updatePresence() {
     let onlinePeers = 0;
@@ -2938,10 +3470,36 @@ document.addEventListener('DOMContentLoaded', () => {
     peers.forEach(g => { if (now - g.last < 12000) onlinePeers++; });
     const n = onlinePeers + (ccMe && ccMe.name ? 1 : 0);
     const where = ccMe && ccMe.geo ? ' \u00b7 ' + ccMe.geo : '';
+    const total = ccBackend === 'live' ? Math.max(n, supaOnline) : n;
+    const tag = ccBackend === 'live' ? ' \u00b7 live' : ccBackend === 'error' ? ' \u00b7 offline' : '';
     const label = ccMe && ccMe.name
-      ? `${n} online \u00b7 ${ccMe.name}${where}`
-      : `${Math.max(n, 0)} online`;
+      ? `${total} online \u00b7 ${ccMe.name}${where}${tag}`
+      : `${Math.max(total, 0)} online${tag}`;
     if (label !== lastPresence) { lastPresence = label; $('#ccPresence').textContent = label; }
+    ccRenderNetStrip();
+  }
+
+  // A plain-language connection strip above the composer, so it's obvious
+  // whether messages are reaching other people or staying on this device.
+  function ccRenderNetStrip() {
+    const chat = document.querySelector('.community-chat');
+    const form = document.querySelector('.cc-input');
+    if (!chat || !form) return;
+    let el = document.querySelector('.cc-net');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'cc-net';
+      chat.insertBefore(el, form);
+    }
+    const ok = ccBackend === 'live' || ccBackend === 'sync';
+    el.className = 'cc-net' + (ok ? ' live' : ' down');
+    el.textContent = ccBackend === 'live'
+      ? 'Live \u00b7 everyone in the room sees your messages'
+      : ccBackend === 'sync'
+        ? 'Connected \u00b7 messages sync every few seconds'
+        : ccSupaEnabled()
+          ? 'Not connected \u00b7 ' + (ccLastErr || 'no response from the database yet')
+          : 'Local only \u00b7 no backend configured';
   }
   function relTime(ts) {
     const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
@@ -2955,6 +3513,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Exact local clock time, e.g. "9:10 PM"
     try { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
     catch { return ''; }
+  }
+  // Keep office labels short so a busy room stays readable
+  function ccClampName(name, max) {
+    const n = String(name || 'Guest').trim();
+    return n.length > max ? n.slice(0, max - 1) + '\u2026' : n;
   }
   function ccAvatarColor(name) {
     return `hsl(${ccHash(name) % 360} 62% 54%)`;
@@ -3020,6 +3583,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ccMsgs.scrollTop = ccMsgs.scrollHeight;
   }
   function ccFindMsg(mid) { return ccHistory().find(x => x.mid === mid); }
+  // Bare URLs become safe links — visitors paste portfolios and articles.
+  function ccLinkify(html) {
+    return String(html).replace(/(https?:\/\/[^\s<]+[^\s<.,;:!?)\]}"'])/g,
+      u => '<a href="' + u + '" target="_blank" rel="noopener noreferrer nofollow" class="cc-link">' + u.replace(/^https?:\/\//, '') + '</a>');
+  }
+
   function ccRender(m, scroll = true) {
     const el = document.createElement('div');
     if (m.sys) {
@@ -3057,7 +3626,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="cc-meta"><b>${m.name}</b><span>${loc} \u00b7 ${when}</span>${m.edited ? '<span class="cc-edited">(edited)</span>' : ''}</div>
           ${quote}
           <div class="cc-bubble-row">
-            <p>${m.sticker ? stickerHtml(m.sticker) : m.gif ? `<img class="cc-gif" src="${m.gif}" alt="GIF" loading="lazy">` : m.text}</p>
+            <p>${m.sticker ? stickerHtml(m.sticker) : m.gif ? `<img class="cc-gif" src="${m.gif}" alt="GIF" loading="lazy">` : ccLinkify(m.text)}</p>
             <div class="cc-msg-actions">
               <button class="cc-act-btn cc-reply-btn" title="Reply" aria-label="Reply">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path d="M9 7L4 12l5 5M4 12h11a5 5 0 0 1 5 5v1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -3077,8 +3646,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="cc-react-pop" hidden>${REACTIONS.map(r => `<button data-emo="${r}">${r}</button>`).join('')}</div>
         </div>`;
     }
+    const nearBottom = ccMsgs.scrollHeight - ccMsgs.scrollTop - ccMsgs.clientHeight < 90;
+    const mineMsg = m.sid === ccId;
     ccMsgs.appendChild(el);
-    if (scroll) ccMsgs.scrollTop = ccMsgs.scrollHeight;
+    if (scroll && (nearBottom || mineMsg)) ccMsgs.scrollTop = ccMsgs.scrollHeight;
   }
   const esc = t => t.replace(/[<>&"]/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[ch]));
   // A peer counts as online only if we heard from them in the last 12s.
@@ -3098,7 +3669,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (i >= 0) target.reactions[m.emo].splice(i, 1); else target.reactions[m.emo].push(m.by);
         if (!target.reactions[m.emo].length) delete target.reactions[m.emo];
         ccSaveHistory(list);
-        if (commOpen) ccRerenderAll();
+        if (commOpen) {
+          const wasLast = list.length && list[list.length - 1].mid === m.mid;
+          ccRerenderAll();
+          if (wasLast) requestAnimationFrame(() => { ccMsgs.scrollTop = ccMsgs.scrollHeight; });
+        }
       }
     } else if (m.op === 'delete') {
       const idx = list.findIndex(x => x.mid === m.mid);
@@ -3123,13 +3698,35 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (ccChan) ccChan.onmessage = ev => {
     const m = ev.data; if (!m) return;
-    if (m.type === 'pos') { if (m.id !== ccId) peers.set(m.id, { name: m.name || 'Guest', x: m.x, y: m.y, last: Date.now() }); return; }
-    if (m.type === 'bye') { peers.delete(m.id); return; }
+    if (m.type === 'pos') {
+      if (m.id !== ccId) {
+        ccNoteProfile(m.id, { name: m.name, left: false });
+        if (m.typing) ccNoteTyping({ id: m.id, name: m.name });
+        else if (ccTypers.has(m.id)) { ccTypers.delete(m.id); ccRenderTyping(); }
+        const prev = peers.get(m.id) || {};
+        peers.set(m.id, {
+          name: m.name || prev.name || 'Guest',
+          x: prev.x ?? m.x, y: prev.y ?? m.y,          // current, eased in draw
+          tx: m.x, ty: m.y, last: Date.now()
+        });
+      }
+      return;
+    }
+    if (m.type === 'typing') { ccNoteTyping(m); return; }
+    if (m.type === 'bye') {
+      const gone = peers.get(m.id);
+      ccNoteProfile(m.id, { left: true });
+      peers.delete(m.id); ccTypers.delete(m.id); ccRenderTyping();
+      if (gone && gone.name && commOpen) ccSysNote(gone.name + ' left the forum');
+      updatePresence();
+      return;
+    }
     if (m.op) { ccApplyOp(m); return; }
-    if (m.text) {
+    if (m.text || m.sticker || m.gif) {     // stickers/GIFs carry no text
       if (m.sid === ccId) return;
       if (m.mid && ccSeen.has(m.mid)) return;
       if (m.mid) ccSeen.add(m.mid);
+      ccNoteProfile(m.sid, { name: m.name, geo: m.geo, devLabel: m.devLabel, gender: m.gender, left: false });
       const list = ccHistory(); list.push(m); ccSaveHistory(list); if (commOpen) ccRender(m);
     }
   };
@@ -3189,7 +3786,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Lightweight profanity filter — masks common inappropriate words (with light
   // leet-speak normalization) so they never render in the chat.
-  const BAD_WORDS = ['fuck', 'shit', 'bitch', 'asshole', 'bastard', 'cunt', 'dick', 'piss', 'slut', 'whore', 'faggot', 'nigger', 'nigga', 'retard', 'douche', 'pussy', 'cock', 'motherfucker', 'wtf', 'stfu', 'putangina', 'tangina', 'gago', 'puta', 'ulol', 'tarantado', 'lintik', 'pakyu', 'bobo', 'kupal', 'hayop ka', 'punyeta', 'peste', 'hindot', 'kantot', 'iyot', 'burat', 'titi', 'pekpek', 'tae'];
+  const BAD_WORDS = [
+    // English
+    'fuck', 'fucker', 'fucking', 'shit', 'bullshit', 'bitch', 'asshole', 'bastard', 'cunt',
+    'dick', 'piss', 'slut', 'whore', 'faggot', 'nigger', 'nigga', 'retard', 'douche',
+    'pussy', 'cock', 'motherfucker', 'wtf', 'stfu', 'jerkoff', 'wanker', 'twat', 'prick',
+    // Tagalog / Filipino
+    'putangina', 'putang ina', 'tangina', 'tang ina', 'gago', 'gaga', 'puta', 'ulol',
+    'tarantado', 'tarantada', 'lintik', 'pakyu', 'bobo', 'boba', 'kupal', 'hayop ka',
+    'punyeta', 'peste', 'hindot', 'kantot', 'iyot', 'burat', 'titi', 'pekpek', 'tae',
+    'inutil', 'engot', 'siraulo', 'putcha', 'leche', 'hinayupak', 'walanghiya', 'bwisit',
+    // Kapampangan
+    'gagu', 'gagung', 'tarantadu', 'kingnamu', 'putanginamu', 'pekpeknamu', 'buratmu',
+    'ebaldugan', 'mangatue', 'suso mu',
+    // Bisaya / Cebuano
+    'yawa', 'buang', 'pisti', 'bilat', 'bilatmo', 'kingina', 'atay', 'linte',
+    // Ilocano
+    'ukinam', 'ukinnam', 'okinnam', 'bastos'
+  ];
   function bwPattern(w) {
     return new RegExp('\\b' + w.split('').map(ch => {
       const map = { a: '[a@4]', e: '[e3]', i: '[i1!]', o: '[o0]', s: '[s$5]', t: '[t7]', u: '[u]' };
@@ -3239,7 +3853,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (e.target.closest('.cc-react-btn')) {
       const pop = $('.cc-react-pop', msgEl);
-      if (pop) { $$('.cc-react-pop').forEach(p => { if (p !== pop) p.hidden = true; }); pop.hidden = !pop.hidden; }
+      if (pop) {
+        $$('.cc-react-pop').forEach(p => { if (p !== pop) p.hidden = true; });
+        pop.hidden = !pop.hidden;
+        if (!pop.hidden) requestAnimationFrame(() => pop.scrollIntoView({ block: 'nearest' }));
+      }
       return;
     }
     const emoBtn = e.target.closest('.cc-react-pop [data-emo]');
@@ -3289,14 +3907,23 @@ document.addEventListener('DOMContentLoaded', () => {
     sfx('click');
   }));
 
+  // Returning visitors skip the form; this lets them switch name/gender on purpose.
+  window.jmjForgetMe = () => {
+    try { localStorage.removeItem('jmj_commMe'); } catch (e) { }
+    ccMe = {};
+    console.log('Forgotten — the join form will appear next time you open the chat.');
+  };
+
   $('#ccJoinForm').addEventListener('submit', async e => {
     e.preventDefault();
     const raw = ($('#ccName').value || '').trim();
     if (!raw) { ccShowNotice('Please enter a username to join the chat.'); $('#ccName').focus(); return; }
     if (hasProfanity(raw)) { ccShowNotice('Please choose a username without inappropriate language.'); return; }
     const name = esc(raw);
+    ccMe = { name, gender: ccGender, joined: Date.now() };
+    store.set('commMe', ccMe);          // remember them straight away
     const geo = await ccGeo();
-    ccMe = { name, gender: ccGender, country: geo.cc, geo: geo.label, joined: Date.now() };
+    ccMe = { ...ccMe, country: geo.cc, geo: geo.label };
     store.set('commMe', ccMe);
     ccEnter();
     ccPush({ mid: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), sys: true, text: `${name} joined from ${geo.label}` }, true);
@@ -3366,7 +3993,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const stickerById = id => (STICKERS.find(x => x.id === id) || null);
   const stickerHtml = id => {
     const st = stickerById(id);
-    return st ? `<span class="cc-sticker" role="img" aria-label="${st.name} sticker">${st.svg}</span>` : '';
+    if (st) return `<span class="cc-sticker" role="img" aria-label="${st.name} sticker">${st.svg}</span>`;
+    return '<span class="cc-sticker-missing">[sticker]</span>';
   };
 
   const ccStickerGrid = $('#ccStickerGrid');
@@ -3375,6 +4003,45 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(st => `<button type="button" class="cc-sticker-item" data-sticker="${st.id}" title="${st.name}" aria-label="${st.name} sticker">${st.svg}</button>`)
       .join('');
   }
+  $('#ccRosterBtn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const box = $('#ccRoster');
+    if (!box) return;
+    const show = box.hidden;
+    if (show) ccRenderRoster();
+    box.hidden = !show;
+    $('#ccRosterBtn').setAttribute('aria-expanded', String(show));
+    sfx('click');
+  });
+  document.addEventListener('click', e => {
+    const box = $('#ccRoster');
+    if (box && !box.hidden && !e.target.closest('#ccRoster, #ccRosterBtn')) {
+      box.hidden = true; $('#ccRosterBtn')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  $('#ccText')?.addEventListener('input', () => {
+    if (!$('#ccText').value.trim()) { ccTypingUntil = 0; return; }
+    const wasIdle = Date.now() > ccTypingUntil;
+    ccTypingUntil = Date.now() + 3000;
+    ccSendTyping();
+    if (wasIdle && ccMe && ccMe.name) {          // announce immediately, don't wait for the heartbeat
+      const now = { type: 'pos', id: ccId, name: ccMe.name, x: player.x, y: player.y, typing: true };
+      if (ccChan) ccChan.postMessage(now);
+      ccRelaySend(now);
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    let closed = false;
+    $$('.cc-react-pop').forEach(p => { if (!p.hidden) { p.hidden = true; closed = true; } });
+    if (typeof closePops === 'function') {
+      const emo = $('#ccEmojiPop'), st = $('#ccStickerPop');
+      if ((emo && !emo.hidden) || (st && !st.hidden)) { closePops(); closed = true; }
+    }
+    if (closed) e.stopPropagation();
+  }, true);
+
   $('#ccStickerBtn').addEventListener('click', e => {
     e.stopPropagation();
     const willShow = ccStickerPop.hidden; closePops(); ccStickerPop.hidden = !willShow; sfx('click');
@@ -3396,9 +4063,10 @@ document.addEventListener('DOMContentLoaded', () => {
     communityModal.classList.add('open'); communityModal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
     commOpen = true;
+    ccClearUnread();
     sizeOffice(); refreshAccentCss();
     // Join the shared room: Supabase when configured, WS relay otherwise
-    if (ccSupaEnabled()) { if (!supa) ccSupaInit(); }
+    if (ccSupaEnabled()) { if (!supa) ccSupaInit(); ccRtConnect(); ccStartPolling(); }
     else if (!ccWs) ccRelayConnect();
     cancelAnimationFrame(commRaf); commRaf = requestAnimationFrame(drawOffice);
     if (ccMe && ccMe.name) ccEnter(); else { ccJoin.hidden = false; ccMsgs.hidden = true; ccForm.hidden = true; }
@@ -3409,7 +4077,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let changed = false;
       peers.forEach((g, id) => { if (now - g.last > 12000) { peers.delete(id); changed = true; } });
       if (ccMe && ccMe.name) {
-        const hb = { type: 'pos', id: ccId, name: ccMe.name, x: player.x, y: player.y };
+        const hb = { type: 'pos', id: ccId, name: ccMe.name, x: player.x, y: player.y,
+                     typing: Date.now() < ccTypingUntil };
         if (ccChan) ccChan.postMessage(hb);
         ccRelaySend(hb);
       }
