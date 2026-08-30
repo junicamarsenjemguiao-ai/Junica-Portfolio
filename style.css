@@ -2088,7 +2088,20 @@ body.desktop-mode .project-card { transform-style: preserve-3d; }
 .flip-back p { font-size: .86rem; }
 
 /* ---------- Community Space ---------- */
-.community-fab { bottom: calc(var(--space-3) + 132px); }
+/* Community Space floating button */
+.community-fab {
+    position: fixed !important;
+    right: var(--space-3) !important;
+    bottom: calc(var(--space-3) + 132px) !important;
+    z-index: 301 !important;
+    width: 48px;
+    height: 48px;
+    display: grid !important;
+    place-items: center;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
 .community-modal { width: min(1040px, 100%); }
 .community-modal .modal-role b { color: var(--accent); font-family: var(--font-mono); font-size: .82em; }
 .community-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--space-3); margin-top: var(--space-3); }
