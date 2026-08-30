@@ -2135,40 +2135,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openBooking() {
+      if (embedUrl) {
+        window.open(embedUrl, '_blank', 'noopener,noreferrer');
+        unlock && unlock('contact');
+        sfx('pop');
+        return;
+      }
+
       bookingModal.hidden = false;
       bookingModal.setAttribute('aria-hidden', 'false');
       bookingModal.classList.add('open');
       document.body.style.overflow = 'hidden';
-      if (embedUrl && bkEmbed && !bkEmbed.dataset.loaded) {
-        bkEmbed.dataset.loaded = '1';
-        bkEmbed.hidden = false;
-        if (bkForm) bkForm.hidden = true;
-        const sub = $('#bookingSub');
-        if (sub) sub.textContent = 'Pick any open slot below — it books straight into my calendar.';
-        const isCalendly = !!BOOKING.calendly;
-        const src = isCalendly
-          ? embedUrl + (embedUrl.includes('?') ? '&' : '?') + 'embed_domain=' + location.hostname + '&embed_type=Inline'
-          : embedUrl;
-        const f = document.createElement('iframe');
-        f.src = src;
-        f.title = 'Booking calendar';
-        f.loading = 'lazy';
-        f.setAttribute('frameborder', '0');
-        f.style.cssText = 'width:100%;height:min(680px,72vh);border:0;border-radius:12px';
-        bkEmbed.appendChild(f);
-
-        // Google sometimes refuses to frame its booking page. If nothing paints,
-        // fall back to a clear button rather than leaving an empty box.
-        setTimeout(() => {
-          let blank = false;
-          try { blank = !f.contentWindow || f.contentWindow.length === 0 && f.clientHeight < 80; } catch (e) { blank = false; }
-          if (blank || !f.clientHeight) {
-            bkEmbed.innerHTML = '<a class="btn-primary bk-open-cal" href="' + embedUrl +
-              '" target="_blank" rel="noopener">Open my booking page</a>' +
-              '<p class="bk-tz">Opens Google Calendar in a new tab.</p>';
-          }
-        }, 2500);
-      }
       setTimeout(() => $('#bkName')?.focus(), 120);
       unlock && unlock('contact');
       sfx('pop');
