@@ -2500,6 +2500,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     );
 
+    // Realtime forum operations: reactions, edits, and deletes.
+    supaChan.on(
+      'broadcast',
+      { event: 'forum-op' },
+      ({ payload }) => {
+        if (!payload) return;
+        if (payload.by && payload.by === ccId) return;
+
+        console.log('[community] Realtime forum operation received:', payload.op, payload.mid);
+        ccHandleRemote(payload);
+      }
+    );
+
     supaChan.subscribe(st => {
       console.log('[community] Supabase realtime status:', st);
 
@@ -2537,20 +2550,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (supaChan && supaReady) supaChan.send({ type: 'broadcast', event: 'office', payload: obj });
         return true;
       }
-      if (obj.op === 'delete') {
-        const { error } = await supa
-          .from('cc_messages')
-          .delete()
-          .eq('mid', obj.mid);
+      // Forum operations are broadcast immediately so reactions, edits,
+      // and deletes appear live on every connected visitor.
+      if (obj.op === 'react' || obj.op === 'edit' || obj.op === 'delete') {
+        if (supaChan && supaReady) {
+          const result = await supaChan.send({
+            type: 'broadcast',
+            event: 'forum-op',
+            payload: obj
+          });
 
-        if (error) {
-          console.error('[community] Supabase delete failed:', error);
-          return false;
+          if (result !== 'ok') {
+            console.warn('[community] Forum operation broadcast failed:', result);
+          } else {
+            console.log('[community] Forum operation broadcast:', obj.op, obj.mid);
+          }
         }
-        return true;
-      }
 
-      if (obj.op === 'edit' || obj.op === 'react') {
+        // Keep the database as the persistent source of truth.
+        if (obj.op === 'delete') {
+          const { error } = await supa
+            .from('cc_messages')
+            .delete()
+            .eq('mid', obj.mid);
+
+          if (error) {
+            console.error('[community] Supabase delete failed:', error);
+            return false;
+          }
+          return true;
+        }
+
         const m = ccFindMsg(obj.mid);
 
         if (m) {
@@ -2564,6 +2594,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
           }
         }
+
         return true;
       }
 
